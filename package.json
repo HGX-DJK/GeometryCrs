@@ -1,0 +1,33 @@
+{
+  "name": "geometry-crs",
+  "version": "1.0.0",
+  "description": "China CRS geometry conversion library for WGS-84, GCJ-02, BD-09, GeoJSON and WKT.",
+  "main": "dist/geometryCrs.umd.js",
+  "module": "dist/geometryCrs.esm.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rollup -c && node scripts/copy-types.js",
+    "dev": "rollup -c -w",
+    "test": "node scripts/test.js"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.0",
+    "@rollup/plugin-node-resolve": "^16.0.0",
+    "rollup": "^4.28.0"
+  },
+  "keywords": [
+    "coordinate",
+    "transform",
+    "wgs84",
+    "gcj02",
+    "bd09",
+    "wkt",
+    "geojson"
+  ],
+  "author": "",
+  "license": "MIT"
+}

@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>geometryCrs Demo</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1f2937; background: #f6f7f9; }
+    main { max-width: 1120px; margin: 0 auto; padding: 28px 18px 40px; }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    h2 { margin: 0 0 14px; font-size: 20px; }
+    h3 { margin: 0; font-size: 15px; }
+    p { margin: 0 0 24px; color: #5b6472; }
+    .panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 18px; margin-bottom: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px; }
+    label { display: grid; gap: 6px; font-size: 13px; color: #4b5563; }
+    input, select, textarea, button { width: 100%; border: 1px solid #d1d5db; border-radius: 6px; font: inherit; }
+    input, select { height: 38px; padding: 0 10px; background: #fff; }
+    textarea { min-height: 92px; padding: 10px; resize: vertical; }
+    button { height: 40px; cursor: pointer; color: #fff; border: 0; background: #2563eb; font-weight: 600; }
+    button:hover { background: #1d4ed8; }
+    .secondary { background: #374151; }
+    .secondary:hover { background: #1f2937; }
+    pre { margin: 12px 0 0; padding: 12px; min-height: 48px; overflow: auto; border-radius: 6px; color: #d1fae5; background: #111827; font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 14px 0; }
+    .metric { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #f9fafb; }
+    .metric strong { display: block; margin-top: 4px; font-size: 24px; }
+    .cases { display: grid; gap: 10px; }
+    .case { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #fff; }
+    .case-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 8px; }
+    .badge { flex: 0 0 auto; border-radius: 999px; padding: 3px 9px; font-size: 12px; font-weight: 700; }
+    .pass { color: #166534; background: #dcfce7; }
+    .fail { color: #991b1b; background: #fee2e2; }
+    .pending { color: #374151; background: #e5e7eb; }
+    .case pre { min-height: 0; margin-top: 8px; }
+    @media (max-width: 640px) {
+      main { padding: 20px 12px 28px; }
+      .case-head { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>geometryCrs</h1>
+    <p>点、数组、GeoJSON、WKT 坐标转换演示，并内置全部测试用例。</p>
+
+    <section class="panel">
+      <h2>一键测试</h2>
+      <div class="grid">
+        <button id="runAllTests">运行全部测试用例</button>
+        <button id="clearTests" class="secondary">清空测试结果</button>
+      </div>
+      <div class="summary">
+        <div class="metric">总数<strong id="totalCount">0</strong></div>
+        <div class="metric">通过<strong id="passCount">0</strong></div>
+        <div class="metric">失败<strong id="failCount">0</strong></div>
+      </div>
+      <div id="testCases" class="cases"></div>
+    </section>
+
+    <section class="panel">
+      <h2>点转换</h2>
+      <div class="grid">
+        <label>坐标<input id="pointInput" value="116.397, 39.908"></label>
+        <label>源坐标系
+          <select id="pointFrom">
+            <option value="wgs84">WGS-84</option>
+            <option value="EPSG:4326">EPSG:4326</option>
+            <option value="gcj02">GCJ-02</option>
+            <option value="bd09ll">BD-09</option>
+          </select>
+        </label>
+        <label>目标坐标系
+          <select id="pointTo">
+            <option value="gcj02">GCJ-02</option>
+            <option value="wgs84">WGS-84</option>
+            <option value="bd09">BD-09</option>
+          </select>
+        </label>
+        <button id="convertPoint">转换</button>
+      </div>
+      <pre id="pointOutput"></pre>
+    </section>
+
+    <section class="panel">
+      <h2>WKT 转换</h2>
+      <div class="grid">
+        <label>源坐标系
+          <select id="wktFrom">
+            <option value="wgs84">WGS-84</option>
+            <option value="gcj02">GCJ-02</option>
+            <option value="bd09ll">BD-09</option>
+          </select>
+        </label>
+        <label>目标坐标系
+          <select id="wktTo">
+            <option value="gcj02">GCJ-02</option>
+            <option value="wgs84">WGS-84</option>
+            <option value="bd09ll">BD-09</option>
+          </select>
+        </label>
+      </div>
+      <label>WKT<textarea id="wktInput">POLYGON((116 39, 117 39, 117 40, 116 39))</textarea></label>
+      <button id="convertWkt" style="margin-top: 12px;">转换 WKT</button>
+      <pre id="wktOutput"></pre>
+    </section>
+
+    <section class="panel">
+      <h2>GeoJSON 转换</h2>
+      <label>GeoJSON<textarea id="geojsonInput">{"type":"LineString","coordinates":[[116,39,10],[117,40,20]]}</textarea></label>
+      <button id="convertGeojson" style="margin-top: 12px;">转换 GeoJSON</button>
+      <pre id="geojsonOutput"></pre>
+    </section>
+  </main>
+
+  <script src="./dist/geometryCrs.umd.js"></script>
+  <script>
+    const format = value => typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+    const closeTo = (actual, expected, tolerance = 1e-8) => Math.abs(actual - expected) <= tolerance;
+    const isPosition = value => Array.isArray(value) && value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1]);
+    const assert = (condition, message) => { if (!condition) throw new Error(message || '断言失败'); };
+    const assertPosition = value => assert(isPosition(value), '返回值不是坐标点');
+    const assertWkt = (value, type) => {
+      assert(typeof value === 'string', '返回值不是 WKT 字符串');
+      assert(value.startsWith(type + '(') || value === type + ' EMPTY', 'WKT 类型不正确');
+    };
+    const show = (id, fn) => {
+      const output = document.getElementById(id);
+      try { output.textContent = format(fn()); }
+      catch (error) { output.textContent = error.message; }
+    };
+
+    const testCases = [
+      { name: '单点 WGS-84 -> GCJ-02', run: () => geometryCrs.transformPoint([116.397, 39.908], 'wgs84', 'gcj02'), check: assertPosition },
+      { name: '单点 GCJ-02 -> WGS-84', run: () => geometryCrs.transformPoint([116.40324337854781, 39.90940335390724], 'gcj02', 'wgs84'), check: assertPosition },
+      { name: '单点 GCJ-02 -> BD-09', run: () => geometryCrs.transformPoint([116.40324337854781, 39.90940335390724], 'gcj02', 'bd09ll'), check: assertPosition },
+      { name: '单点 BD-09 -> GCJ-02', run: () => geometryCrs.transformPoint([116.409616, 39.915681], 'bd09ll', 'gcj02'), check: assertPosition },
+      { name: '单点 WGS-84 -> BD-09', run: () => geometryCrs.transformPoint([116.397, 39.908], 'wgs84', 'bd09'), check: assertPosition },
+      { name: '单点 BD-09 -> WGS-84', run: () => geometryCrs.transformPoint([116.409616, 39.915681], 'bd-09', 'wgs84'), check: assertPosition },
+      { name: 'EPSG:4326 别名', run: () => geometryCrs.transformPoint([116.397, 39.908], 'EPSG:4326', 'gcj-02'), check: assertPosition },
+      { name: '中国境外坐标保持不变', run: () => geometryCrs.transformPoint([-73.9857, 40.7484], 'wgs84', 'gcj02'), check: result => { assert(closeTo(result[0], -73.9857), '境外经度不应变化'); assert(closeTo(result[1], 40.7484), '境外纬度不应变化'); } },
+      { name: '3D 坐标保留高度', run: () => geometryCrs.transformPoint([116.397, 39.908, 45], 'wgs84', 'gcj02'), check: result => { assertPosition(result); assert(result[2] === 45, '高度值未保留'); } },
+      { name: '点数组转换', run: () => geometryCrs.transformPoints([[116.397, 39.908], [117.2, 40.1]], 'wgs84', 'gcj02'), check: result => { assert(result.length === 2, '点数组长度不正确'); result.forEach(assertPosition); } },
+      { name: 'GeoJSON Point', run: () => geometryCrs.transformGeoJSON({ type: 'Point', coordinates: [116.397, 39.908] }, 'wgs84', 'gcj02'), check: result => { assert(result.type === 'Point', '类型应为 Point'); assertPosition(result.coordinates); } },
+      { name: 'GeoJSON LineString', run: () => geometryCrs.transformGeoJSON({ type: 'LineString', coordinates: [[116.397, 39.908], [117.2, 40.1]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates.length === 2, '线坐标数量不正确') },
+      { name: 'GeoJSON Polygon', run: () => geometryCrs.transformGeoJSON({ type: 'Polygon', coordinates: [[[116, 39], [117, 39], [117, 40], [116, 39]]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates[0].length === 4, '面坐标数量不正确') },
+      { name: 'GeoJSON MultiPoint', run: () => geometryCrs.transformGeoJSON({ type: 'MultiPoint', coordinates: [[116, 39], [117, 40]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates.length === 2, '多点数量不正确') },
+      { name: 'GeoJSON MultiLineString', run: () => geometryCrs.transformGeoJSON({ type: 'MultiLineString', coordinates: [[[116, 39], [117, 40]], [[118, 41], [119, 42]]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates.length === 2, '多线数量不正确') },
+      { name: 'GeoJSON MultiPolygon', run: () => geometryCrs.transformGeoJSON({ type: 'MultiPolygon', coordinates: [[[[116, 39], [117, 39], [117, 40], [116, 39]]]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates[0][0].length === 4, '多面坐标数量不正确') },
+      { name: 'GeoJSON Feature 保留属性', run: () => geometryCrs.transformGeoJSON({ type: 'Feature', properties: { name: '测试点' }, geometry: { type: 'Point', coordinates: [116.397, 39.908] } }, 'wgs84', 'gcj02'), check: result => { assert(result.properties.name === '测试点', '属性未保留'); assertPosition(result.geometry.coordinates); } },
+      { name: 'GeoJSON FeatureCollection', run: () => geometryCrs.transformGeoJSON({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { name: '点' }, geometry: { type: 'Point', coordinates: [116, 39] } }, { type: 'Feature', properties: { name: '线' }, geometry: { type: 'LineString', coordinates: [[116, 39], [117, 40]] } }] }, 'wgs84', 'gcj02'), check: result => assert(result.features.length === 2, 'Feature 数量不正确') },
+      { name: 'GeoJSON GeometryCollection', run: () => geometryCrs.transformGeoJSON({ type: 'GeometryCollection', geometries: [{ type: 'Point', coordinates: [116, 39] }, { type: 'LineString', coordinates: [[116, 39], [117, 40]] }] }, 'wgs84', 'gcj02'), check: result => assert(result.geometries.length === 2, 'Geometry 数量不正确') },
+      { name: 'WKT parse POINT', run: () => geometryCrs.WKT.parse('POINT(116 39)'), check: result => { assert(result.type === 'Point', '类型应为 Point'); assertPosition(result.coordinates); } },
+      { name: 'WKT parse LINESTRING', run: () => geometryCrs.WKT.parse('LINESTRING(116 39, 117 40)'), check: result => assert(result.coordinates.length === 2, '线坐标数量不正确') },
+      { name: 'WKT parse POLYGON', run: () => geometryCrs.WKT.parse('POLYGON((116 39, 117 39, 117 40, 116 39))'), check: result => assert(result.coordinates[0].length === 4, '面坐标数量不正确') },
+      { name: 'WKT parse MULTIPOINT', run: () => geometryCrs.WKT.parse('MULTIPOINT((116 39), (117 40))'), check: result => assert(result.coordinates.length === 2, '多点数量不正确') },
+      { name: 'WKT parse MULTILINESTRING', run: () => geometryCrs.WKT.parse('MULTILINESTRING((116 39, 117 40), (118 41, 119 42))'), check: result => assert(result.coordinates.length === 2, '多线数量不正确') },
+      { name: 'WKT parse MULTIPOLYGON', run: () => geometryCrs.WKT.parse('MULTIPOLYGON(((116 39, 117 39, 117 40, 116 39)))'), check: result => assert(result.coordinates[0][0].length === 4, '多面坐标数量不正确') },
+      { name: 'WKT stringify 3D LineString', run: () => geometryCrs.WKT.stringify({ type: 'LineString', coordinates: [[116, 39, 10], [117, 40, 20]] }), check: result => assert(result === 'LINESTRING(116 39 10, 117 40 20)', '3D WKT 输出不正确') },
+      { name: 'WKT transform POINT', run: () => geometryCrs.transformWKT('POINT(116 39)', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'POINT') },
+      { name: 'WKT transform LINESTRING', run: () => geometryCrs.transformWKT('LINESTRING(116 39, 117 40)', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'LINESTRING') },
+      { name: 'WKT transform POLYGON', run: () => geometryCrs.transformWKT('POLYGON((116 39, 117 39, 117 40, 116 39))', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'POLYGON') },
+      { name: 'WKT transform MULTIPOINT', run: () => geometryCrs.transformWKT('MULTIPOINT((116 39), (117 40))', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'MULTIPOINT') },
+      { name: 'WKT transform MULTILINESTRING', run: () => geometryCrs.transformWKT('MULTILINESTRING((116 39, 117 40), (118 41, 119 42))', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'MULTILINESTRING') },
+      { name: 'WKT transform MULTIPOLYGON', run: () => geometryCrs.transformWKT('MULTIPOLYGON(((116 39, 117 39, 117 40, 116 39)))', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'MULTIPOLYGON') },
+      { name: '高精度 GCJ-02 -> WGS-84 反算', run: () => { const origin = [116.397, 39.908]; const gcj = geometryCrs.GPS.wgs84_gcj02(origin[0], origin[1]); return geometryCrs.GPS.gcj02_wgs84_precise(gcj[0], gcj[1]); }, check: result => { assert(closeTo(result[0], 116.397, 1e-7), '经度反算误差过大'); assert(closeTo(result[1], 39.908, 1e-7), '纬度反算误差过大'); } },
+      { name: '非法 CRS 抛出错误', run: () => { try { geometryCrs.transformPoint([116, 39], 'wgs84', 'epsg:3857'); } catch (error) { return error.message; } throw new Error('未抛出错误'); }, check: result => assert(result.includes('Unsupported CRS'), '错误信息不正确') },
+      { name: '非法 WKT 抛出错误', run: () => { try { geometryCrs.WKT.parse('LINESTRING(116 39, bad)'); } catch (error) { return error.message; } throw new Error('未抛出错误'); }, check: result => assert(result.includes('Invalid WKT coordinate'), '错误信息不正确') }
+    ];
+
+    const renderPendingTests = () => {
+      document.getElementById('totalCount').textContent = testCases.length;
+      document.getElementById('passCount').textContent = '0';
+      document.getElementById('failCount').textContent = '0';
+      document.getElementById('testCases').innerHTML = testCases.map(test => `
+        <article class="case">
+          <div class="case-head">
+            <h3>${test.name}</h3>
+            <span class="badge pending">未运行</span>
+          </div>
+        </article>
+      `).join('');
+    };
+
+    const runAllTests = () => {
+      let passed = 0;
+      let failed = 0;
+      const html = testCases.map(test => {
+        try {
+          const result = test.run();
+          test.check(result);
+          passed++;
+          return `<article class="case"><div class="case-head"><h3>${test.name}</h3><span class="badge pass">通过</span></div><pre>${format(result)}</pre></article>`;
+        } catch (error) {
+          failed++;
+          return `<article class="case"><div class="case-head"><h3>${test.name}</h3><span class="badge fail">失败</span></div><pre>${error.message}</pre></article>`;
+        }
+      }).join('');
+      document.getElementById('totalCount').textContent = testCases.length;
+      document.getElementById('passCount').textContent = passed;
+      document.getElementById('failCount').textContent = failed;
+      document.getElementById('testCases').innerHTML = html;
+    };
+
+    document.getElementById('runAllTests').addEventListener('click', runAllTests);
+    document.getElementById('clearTests').addEventListener('click', renderPendingTests);
+    document.getElementById('convertPoint').addEventListener('click', () => show('pointOutput', () => {
+      const coord = document.getElementById('pointInput').value.split(',').map(value => Number(value.trim()));
+      return geometryCrs.transformPoint(coord, document.getElementById('pointFrom').value, document.getElementById('pointTo').value);
+    }));
+    document.getElementById('convertWkt').addEventListener('click', () => show('wktOutput', () => geometryCrs.transformWKT(document.getElementById('wktInput').value, document.getElementById('wktFrom').value, document.getElementById('wktTo').value)));
+    document.getElementById('convertGeojson').addEventListener('click', () => show('geojsonOutput', () => geometryCrs.transformGeoJSON(JSON.parse(document.getElementById('geojsonInput').value), 'wgs84', 'gcj02')));
+
+    renderPendingTests();
+    document.getElementById('convertPoint').click();
+    document.getElementById('convertWkt').click();
+    document.getElementById('convertGeojson').click();
+  </script>
+</body>
+</html>

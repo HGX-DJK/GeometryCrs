@@ -1,0 +1,35 @@
+
+# dependencies
+node_modules
+.npm-cache
+
+# log
+*.log
+npm-debug.log*
+yarn-error.log*
+yarn.lock
+package-lock.json
+
+# production
+dist
+
+# misc
+.DS_Store
+
+# idea
+.idea
+.vscode
+.labe
+
+# Coverage directory used by tools like istanbul
+coverage
+*.lcov
+.turbo
+
+# others
+.env
+.env.local
+web.config
+
+*.tsbuildinfo
+*.map
