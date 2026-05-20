@@ -129,50 +129,28 @@ geometryCrs.transformGeoJSON(geojson, 'wgs84', 'gcj02');
 'MULTIPOLYGON(((116 39, 117 39, 117 40, 116 39)))'
 ```
 
-## 安装和构建
-
-```bash
-npm install
-npm test
-npm run build
-```
-
-发布到 npm 后可通过下面的方式安装：
+## 安装
 
 ```bash
 npm install geometry-crs
 ```
-
-构建后生成：
-
-- `dist/geometryCrs.esm.js`
-- `dist/geometryCrs.umd.js`
-- `dist/index.d.ts`
 
 ## 引入方式
 
 ### ES Module
 
 ```js
-import geometryCrs, { WKT, GPS } from './dist/geometryCrs.esm.js';
+import geometryCrs, { WKT, GPS } from 'geometry-crs';
 
 const point = geometryCrs.transform([116.397, 39.908], 'wgs84', 'gcj02');
 const geometry = WKT.parse('LINESTRING(116 39, 117 40)');
 const bd09 = GPS.wgs84_bd09ll(116.397, 39.908);
 ```
 
-npm 安装后也可以直接从包名引入：
-
-```js
-import geometryCrs from 'geometry-crs';
-
-const point = geometryCrs.transform([116.397, 39.908], 'wgs84', 'gcj02');
-```
-
 ### Script
 
 ```html
-<script src="./dist/geometryCrs.umd.js"></script>
+<script src="https://unpkg.com/geometry-crs/dist/geometryCrs.umd.js"></script>
 <script>
   const point = geometryCrs.transform([116.397, 39.908], 'wgs84', 'gcj02');
 </script>

@@ -114,7 +114,7 @@
     </section>
   </main>
 
-  <script src="./dist/geometryCrs.umd.js"></script>
+  <script src="https://unpkg.com/geometry-crs/dist/geometryCrs.umd.js"></script>
   <script>
     const format = value => typeof value === 'string' ? value : JSON.stringify(value, null, 2);
     const closeTo = (actual, expected, tolerance = 1e-8) => Math.abs(actual - expected) <= tolerance;
