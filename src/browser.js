@@ -1,3 +1,3 @@
-import geometryCrs from './geometryCrs.js';
+import giserConvertCrs from './giserConvertCrs.js';
 
-export default geometryCrs;
+export default giserConvertCrs;

@@ -8,9 +8,9 @@ const plugins = [
 
 export default [
   {
-    input: 'src/geometryCrs.js',
+    input: 'src/giserConvertCrs.js',
     output: {
-      file: 'dist/geometryCrs.esm.js',
+      file: 'dist/giserConvertCrs.esm.js',
       format: 'esm'
     },
     plugins
@@ -18,9 +18,9 @@ export default [
   {
     input: 'src/browser.js',
     output: {
-      file: 'dist/geometryCrs.umd.js',
+      file: 'dist/giserConvertCrs.umd.js',
       format: 'umd',
-      name: 'geometryCrs',
+      name: 'giserConvertCrs',
       exports: 'default'
     },
     plugins

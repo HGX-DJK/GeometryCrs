@@ -97,7 +97,7 @@ export interface WKTApi {
   stringify(geojson: Geometry): string;
 }
 
-export interface geometryCrs {
+export interface giserConvertCrs {
   GPS: GPSApi;
   ProjectionTransform: ProjectionTransformApi;
   WKT: WKTApi;
@@ -113,5 +113,5 @@ export const GPS: GPSApi;
 export const ProjectionTransform: ProjectionTransformApi;
 export const WKT: WKTApi;
 
-declare const geometryCrs: geometryCrs;
-export default geometryCrs;
+declare const giserConvertCrs: giserConvertCrs;
+export default giserConvertCrs;

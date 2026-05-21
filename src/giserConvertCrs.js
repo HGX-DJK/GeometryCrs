@@ -2,7 +2,7 @@ import GPS from './gps.js';
 import ProjectionTransform from './projection.js';
 import WKT from './wkt.js';
 
-const geometryCrs = {
+const giserConvertCrs = {
   GPS,
   ProjectionTransform,
   WKT,
@@ -36,4 +36,4 @@ const geometryCrs = {
 };
 
 export { GPS, ProjectionTransform, WKT };
-export default geometryCrs;
+export default giserConvertCrs;

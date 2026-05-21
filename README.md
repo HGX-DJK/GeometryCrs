@@ -1,8 +1,8 @@
-# geometryCrs
+# giserConvertCrs
 
-`geometryCrs` 是一个几何坐标系转换工具库，支持 WGS-84、GCJ-02、BD-09 之间的点、线、面、数组、GeoJSON 和 WKT 转换。
+`giserConvertCrs` 是一个几何坐标系转换工具库，支持 WGS-84、GCJ-02、BD-09 之间的点、线、面、数组、GeoJSON 和 WKT 转换。
 
-> 注意：npm 包名需要保持小写，因此发布包名仍为 `geometry-crs`；代码变量、浏览器全局变量、构建文件名统一使用 `geometryCrs`。
+> 注意：npm 包名需要保持小写，因此发布包名仍为 `giser-convert-crs`；代码变量、浏览器全局变量、构建文件名统一使用 `giserConvertCrs`。
 
 ## 坐标系写法
 
@@ -15,9 +15,9 @@
 | BD-09 | `bd09ll`, `bd09`, `bd-09` |
 
 ```js
-geometryCrs.transform([116.397, 39.908], 'wgs84', 'gcj02');
-geometryCrs.transform([116.397, 39.908], 'EPSG:4326', 'bd09');
-geometryCrs.transform([116.397, 39.908], 'bd-09', 'wgs84');
+giserConvertCrs.transform([116.397, 39.908], 'wgs84', 'gcj02');
+giserConvertCrs.transform([116.397, 39.908], 'EPSG:4326', 'bd09');
+giserConvertCrs.transform([116.397, 39.908], 'bd-09', 'wgs84');
 ```
 
 坐标顺序固定为 `[lon, lat]`，即经度在前、纬度在后。三维坐标也支持，例如 `[lon, lat, height]`，转换后会保留高度值。
@@ -42,7 +42,7 @@ geometryCrs.transform([116.397, 39.908], 'bd-09', 'wgs84');
 
 ### GeoJSON
 
-`geometryCrs.transformGeoJSON(geojson, 'wgs84', 'gcj02')` 里的 `geojson` 是标准 GeoJSON 几何对象、Feature 或 FeatureCollection。
+`giserConvertCrs.transformGeoJSON(geojson, 'wgs84', 'gcj02')` 里的 `geojson` 是标准 GeoJSON 几何对象、Feature 或 FeatureCollection。
 
 Point：
 
@@ -52,7 +52,7 @@ const geojson = {
   coordinates: [116.397, 39.908]
 };
 
-geometryCrs.transformGeoJSON(geojson, 'wgs84', 'gcj02');
+giserConvertCrs.transformGeoJSON(geojson, 'wgs84', 'gcj02');
 ```
 
 LineString：
@@ -66,7 +66,7 @@ const geojson = {
   ]
 };
 
-geometryCrs.transformGeoJSON(geojson, 'wgs84', 'gcj02');
+giserConvertCrs.transformGeoJSON(geojson, 'wgs84', 'gcj02');
 ```
 
 Polygon：
@@ -82,7 +82,7 @@ const geojson = {
   ]]
 };
 
-geometryCrs.transformGeoJSON(geojson, 'wgs84', 'gcj02');
+giserConvertCrs.transformGeoJSON(geojson, 'wgs84', 'gcj02');
 ```
 
 FeatureCollection：
@@ -113,7 +113,7 @@ const geojson = {
   ]
 };
 
-geometryCrs.transformGeoJSON(geojson, 'wgs84', 'gcj02');
+giserConvertCrs.transformGeoJSON(geojson, 'wgs84', 'gcj02');
 ```
 
 还支持 `MultiPoint`、`MultiLineString`、`MultiPolygon`、`GeometryCollection`。
@@ -132,7 +132,7 @@ geometryCrs.transformGeoJSON(geojson, 'wgs84', 'gcj02');
 ## 安装
 
 ```bash
-npm install geometry-crs
+npm install giser-convert-crs
 ```
 
 ## 引入方式
@@ -140,9 +140,9 @@ npm install geometry-crs
 ### ES Module
 
 ```js
-import geometryCrs, { WKT, GPS } from 'geometry-crs';
+import giserConvertCrs, { WKT, GPS } from 'giser-convert-crs';
 
-const point = geometryCrs.transform([116.397, 39.908], 'wgs84', 'gcj02');
+const point = giserConvertCrs.transform([116.397, 39.908], 'wgs84', 'gcj02');
 const geometry = WKT.parse('LINESTRING(116 39, 117 40)');
 const bd09 = GPS.wgs84_bd09ll(116.397, 39.908);
 ```
@@ -150,15 +150,15 @@ const bd09 = GPS.wgs84_bd09ll(116.397, 39.908);
 ### Script
 
 ```html
-<script src="https://unpkg.com/geometry-crs/dist/geometryCrs.umd.js"></script>
+<script src="https://unpkg.com/giser-convert-crs/dist/giserConvertCrs.umd.js"></script>
 <script>
-  const point = geometryCrs.transform([116.397, 39.908], 'wgs84', 'gcj02');
+  const point = giserConvertCrs.transform([116.397, 39.908], 'wgs84', 'gcj02');
 </script>
 ```
 
 ## API
 
-### `geometryCrs.transform(input, fromCRS, toCRS)`
+### `giserConvertCrs.transform(input, fromCRS, toCRS)`
 
 统一转换入口，会根据输入类型自动处理：
 
@@ -167,56 +167,56 @@ const bd09 = GPS.wgs84_bd09ll(116.397, 39.908);
 - 输入 WKT 字符串时，返回 WKT 字符串。
 
 ```js
-geometryCrs.transform([116.397, 39.908], 'wgs84', 'gcj02');
-geometryCrs.transform([[116.397, 39.908], [117.2, 40.1]], 'wgs84', 'bd09ll');
-geometryCrs.transform('LINESTRING(116 39, 117 40)', 'wgs84', 'gcj02');
+giserConvertCrs.transform([116.397, 39.908], 'wgs84', 'gcj02');
+giserConvertCrs.transform([[116.397, 39.908], [117.2, 40.1]], 'wgs84', 'bd09ll');
+giserConvertCrs.transform('LINESTRING(116 39, 117 40)', 'wgs84', 'gcj02');
 ```
 
-### `geometryCrs.transformPoint(coord, fromCRS, toCRS)`
+### `giserConvertCrs.transformPoint(coord, fromCRS, toCRS)`
 
 ```js
-geometryCrs.transformPoint([116.397, 39.908], 'wgs84', 'gcj02');
+giserConvertCrs.transformPoint([116.397, 39.908], 'wgs84', 'gcj02');
 ```
 
-### `geometryCrs.transformPoints(points, fromCRS, toCRS)`
+### `giserConvertCrs.transformPoints(points, fromCRS, toCRS)`
 
 ```js
-geometryCrs.transformPoints([[116.397, 39.908], [117.2, 40.1]], 'wgs84', 'gcj02');
+giserConvertCrs.transformPoints([[116.397, 39.908], [117.2, 40.1]], 'wgs84', 'gcj02');
 ```
 
-### `geometryCrs.transformGeoJSON(geojson, fromCRS, toCRS)`
+### `giserConvertCrs.transformGeoJSON(geojson, fromCRS, toCRS)`
 
 ```js
-const result = geometryCrs.transformGeoJSON(geojson, 'wgs84', 'gcj02');
+const result = giserConvertCrs.transformGeoJSON(geojson, 'wgs84', 'gcj02');
 ```
 
-### `geometryCrs.transformWKT(wkt, fromCRS, toCRS)`
+### `giserConvertCrs.transformWKT(wkt, fromCRS, toCRS)`
 
 ```js
-geometryCrs.transformWKT('POINT(116.397 39.908)', 'wgs84', 'gcj02');
-geometryCrs.transformWKT('POLYGON((116 39, 117 39, 117 40, 116 39))', 'wgs84', 'gcj02');
+giserConvertCrs.transformWKT('POINT(116.397 39.908)', 'wgs84', 'gcj02');
+giserConvertCrs.transformWKT('POLYGON((116 39, 117 39, 117 40, 116 39))', 'wgs84', 'gcj02');
 ```
 
-### `geometryCrs.WKT`
+### `giserConvertCrs.WKT`
 
 ```js
-const geojson = geometryCrs.WKT.parse('MULTIPOINT((116 39), (117 40))');
-const wkt = geometryCrs.WKT.stringify({
+const geojson = giserConvertCrs.WKT.parse('MULTIPOINT((116 39), (117 40))');
+const wkt = giserConvertCrs.WKT.stringify({
   type: 'LineString',
   coordinates: [[116, 39, 10], [117, 40, 20]]
 });
 ```
 
-### `geometryCrs.GPS`
+### `giserConvertCrs.GPS`
 
 ```js
-geometryCrs.GPS.wgs84_gcj02(116.397, 39.908);
-geometryCrs.GPS.gcj02_wgs84(116.403243, 39.909403);
-geometryCrs.GPS.gcj02_wgs84_precise(116.403243, 39.909403);
-geometryCrs.GPS.gcj02_bd09ll(116.403243, 39.909403);
-geometryCrs.GPS.bd09ll_gcj02(116.409, 39.915);
-geometryCrs.GPS.wgs84_bd09ll(116.397, 39.908);
-geometryCrs.GPS.bd09ll_wgs84(116.409, 39.915);
+giserConvertCrs.GPS.wgs84_gcj02(116.397, 39.908);
+giserConvertCrs.GPS.gcj02_wgs84(116.403243, 39.909403);
+giserConvertCrs.GPS.gcj02_wgs84_precise(116.403243, 39.909403);
+giserConvertCrs.GPS.gcj02_bd09ll(116.403243, 39.909403);
+giserConvertCrs.GPS.bd09ll_gcj02(116.409, 39.915);
+giserConvertCrs.GPS.wgs84_bd09ll(116.397, 39.908);
+giserConvertCrs.GPS.bd09ll_wgs84(116.409, 39.915);
 ```
 
 ## 注意事项

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>geometryCrs Demo</title>
+  <title>giserConvertCrs Demo</title>
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1f2937; background: #f6f7f9; }
@@ -42,7 +42,7 @@
 </head>
 <body>
   <main>
-    <h1>geometryCrs</h1>
+    <h1>giserConvertCrs</h1>
     <p>点、数组、GeoJSON、WKT 坐标转换演示，并内置全部测试用例。</p>
 
     <section class="panel">
@@ -114,7 +114,7 @@
     </section>
   </main>
 
-  <script src="https://unpkg.com/geometry-crs/dist/geometryCrs.umd.js"></script>
+  <script src="https://unpkg.com/giser-convert-crs/dist/giserConvertCrs.umd.js"></script>
   <script>
     const format = value => typeof value === 'string' ? value : JSON.stringify(value, null, 2);
     const closeTo = (actual, expected, tolerance = 1e-8) => Math.abs(actual - expected) <= tolerance;
@@ -132,41 +132,41 @@
     };
 
     const testCases = [
-      { name: '单点 WGS-84 -> GCJ-02', run: () => geometryCrs.transformPoint([116.397, 39.908], 'wgs84', 'gcj02'), check: assertPosition },
-      { name: '单点 GCJ-02 -> WGS-84', run: () => geometryCrs.transformPoint([116.40324337854781, 39.90940335390724], 'gcj02', 'wgs84'), check: assertPosition },
-      { name: '单点 GCJ-02 -> BD-09', run: () => geometryCrs.transformPoint([116.40324337854781, 39.90940335390724], 'gcj02', 'bd09ll'), check: assertPosition },
-      { name: '单点 BD-09 -> GCJ-02', run: () => geometryCrs.transformPoint([116.409616, 39.915681], 'bd09ll', 'gcj02'), check: assertPosition },
-      { name: '单点 WGS-84 -> BD-09', run: () => geometryCrs.transformPoint([116.397, 39.908], 'wgs84', 'bd09'), check: assertPosition },
-      { name: '单点 BD-09 -> WGS-84', run: () => geometryCrs.transformPoint([116.409616, 39.915681], 'bd-09', 'wgs84'), check: assertPosition },
-      { name: 'EPSG:4326 别名', run: () => geometryCrs.transformPoint([116.397, 39.908], 'EPSG:4326', 'gcj-02'), check: assertPosition },
-      { name: '中国境外坐标保持不变', run: () => geometryCrs.transformPoint([-73.9857, 40.7484], 'wgs84', 'gcj02'), check: result => { assert(closeTo(result[0], -73.9857), '境外经度不应变化'); assert(closeTo(result[1], 40.7484), '境外纬度不应变化'); } },
-      { name: '3D 坐标保留高度', run: () => geometryCrs.transformPoint([116.397, 39.908, 45], 'wgs84', 'gcj02'), check: result => { assertPosition(result); assert(result[2] === 45, '高度值未保留'); } },
-      { name: '点数组转换', run: () => geometryCrs.transformPoints([[116.397, 39.908], [117.2, 40.1]], 'wgs84', 'gcj02'), check: result => { assert(result.length === 2, '点数组长度不正确'); result.forEach(assertPosition); } },
-      { name: 'GeoJSON Point', run: () => geometryCrs.transformGeoJSON({ type: 'Point', coordinates: [116.397, 39.908] }, 'wgs84', 'gcj02'), check: result => { assert(result.type === 'Point', '类型应为 Point'); assertPosition(result.coordinates); } },
-      { name: 'GeoJSON LineString', run: () => geometryCrs.transformGeoJSON({ type: 'LineString', coordinates: [[116.397, 39.908], [117.2, 40.1]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates.length === 2, '线坐标数量不正确') },
-      { name: 'GeoJSON Polygon', run: () => geometryCrs.transformGeoJSON({ type: 'Polygon', coordinates: [[[116, 39], [117, 39], [117, 40], [116, 39]]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates[0].length === 4, '面坐标数量不正确') },
-      { name: 'GeoJSON MultiPoint', run: () => geometryCrs.transformGeoJSON({ type: 'MultiPoint', coordinates: [[116, 39], [117, 40]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates.length === 2, '多点数量不正确') },
-      { name: 'GeoJSON MultiLineString', run: () => geometryCrs.transformGeoJSON({ type: 'MultiLineString', coordinates: [[[116, 39], [117, 40]], [[118, 41], [119, 42]]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates.length === 2, '多线数量不正确') },
-      { name: 'GeoJSON MultiPolygon', run: () => geometryCrs.transformGeoJSON({ type: 'MultiPolygon', coordinates: [[[[116, 39], [117, 39], [117, 40], [116, 39]]]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates[0][0].length === 4, '多面坐标数量不正确') },
-      { name: 'GeoJSON Feature 保留属性', run: () => geometryCrs.transformGeoJSON({ type: 'Feature', properties: { name: '测试点' }, geometry: { type: 'Point', coordinates: [116.397, 39.908] } }, 'wgs84', 'gcj02'), check: result => { assert(result.properties.name === '测试点', '属性未保留'); assertPosition(result.geometry.coordinates); } },
-      { name: 'GeoJSON FeatureCollection', run: () => geometryCrs.transformGeoJSON({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { name: '点' }, geometry: { type: 'Point', coordinates: [116, 39] } }, { type: 'Feature', properties: { name: '线' }, geometry: { type: 'LineString', coordinates: [[116, 39], [117, 40]] } }] }, 'wgs84', 'gcj02'), check: result => assert(result.features.length === 2, 'Feature 数量不正确') },
-      { name: 'GeoJSON GeometryCollection', run: () => geometryCrs.transformGeoJSON({ type: 'GeometryCollection', geometries: [{ type: 'Point', coordinates: [116, 39] }, { type: 'LineString', coordinates: [[116, 39], [117, 40]] }] }, 'wgs84', 'gcj02'), check: result => assert(result.geometries.length === 2, 'Geometry 数量不正确') },
-      { name: 'WKT parse POINT', run: () => geometryCrs.WKT.parse('POINT(116 39)'), check: result => { assert(result.type === 'Point', '类型应为 Point'); assertPosition(result.coordinates); } },
-      { name: 'WKT parse LINESTRING', run: () => geometryCrs.WKT.parse('LINESTRING(116 39, 117 40)'), check: result => assert(result.coordinates.length === 2, '线坐标数量不正确') },
-      { name: 'WKT parse POLYGON', run: () => geometryCrs.WKT.parse('POLYGON((116 39, 117 39, 117 40, 116 39))'), check: result => assert(result.coordinates[0].length === 4, '面坐标数量不正确') },
-      { name: 'WKT parse MULTIPOINT', run: () => geometryCrs.WKT.parse('MULTIPOINT((116 39), (117 40))'), check: result => assert(result.coordinates.length === 2, '多点数量不正确') },
-      { name: 'WKT parse MULTILINESTRING', run: () => geometryCrs.WKT.parse('MULTILINESTRING((116 39, 117 40), (118 41, 119 42))'), check: result => assert(result.coordinates.length === 2, '多线数量不正确') },
-      { name: 'WKT parse MULTIPOLYGON', run: () => geometryCrs.WKT.parse('MULTIPOLYGON(((116 39, 117 39, 117 40, 116 39)))'), check: result => assert(result.coordinates[0][0].length === 4, '多面坐标数量不正确') },
-      { name: 'WKT stringify 3D LineString', run: () => geometryCrs.WKT.stringify({ type: 'LineString', coordinates: [[116, 39, 10], [117, 40, 20]] }), check: result => assert(result === 'LINESTRING(116 39 10, 117 40 20)', '3D WKT 输出不正确') },
-      { name: 'WKT transform POINT', run: () => geometryCrs.transformWKT('POINT(116 39)', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'POINT') },
-      { name: 'WKT transform LINESTRING', run: () => geometryCrs.transformWKT('LINESTRING(116 39, 117 40)', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'LINESTRING') },
-      { name: 'WKT transform POLYGON', run: () => geometryCrs.transformWKT('POLYGON((116 39, 117 39, 117 40, 116 39))', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'POLYGON') },
-      { name: 'WKT transform MULTIPOINT', run: () => geometryCrs.transformWKT('MULTIPOINT((116 39), (117 40))', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'MULTIPOINT') },
-      { name: 'WKT transform MULTILINESTRING', run: () => geometryCrs.transformWKT('MULTILINESTRING((116 39, 117 40), (118 41, 119 42))', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'MULTILINESTRING') },
-      { name: 'WKT transform MULTIPOLYGON', run: () => geometryCrs.transformWKT('MULTIPOLYGON(((116 39, 117 39, 117 40, 116 39)))', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'MULTIPOLYGON') },
-      { name: '高精度 GCJ-02 -> WGS-84 反算', run: () => { const origin = [116.397, 39.908]; const gcj = geometryCrs.GPS.wgs84_gcj02(origin[0], origin[1]); return geometryCrs.GPS.gcj02_wgs84_precise(gcj[0], gcj[1]); }, check: result => { assert(closeTo(result[0], 116.397, 1e-7), '经度反算误差过大'); assert(closeTo(result[1], 39.908, 1e-7), '纬度反算误差过大'); } },
-      { name: '非法 CRS 抛出错误', run: () => { try { geometryCrs.transformPoint([116, 39], 'wgs84', 'epsg:3857'); } catch (error) { return error.message; } throw new Error('未抛出错误'); }, check: result => assert(result.includes('Unsupported CRS'), '错误信息不正确') },
-      { name: '非法 WKT 抛出错误', run: () => { try { geometryCrs.WKT.parse('LINESTRING(116 39, bad)'); } catch (error) { return error.message; } throw new Error('未抛出错误'); }, check: result => assert(result.includes('Invalid WKT coordinate'), '错误信息不正确') }
+      { name: '单点 WGS-84 -> GCJ-02', run: () => giserConvertCrs.transformPoint([116.397, 39.908], 'wgs84', 'gcj02'), check: assertPosition },
+      { name: '单点 GCJ-02 -> WGS-84', run: () => giserConvertCrs.transformPoint([116.40324337854781, 39.90940335390724], 'gcj02', 'wgs84'), check: assertPosition },
+      { name: '单点 GCJ-02 -> BD-09', run: () => giserConvertCrs.transformPoint([116.40324337854781, 39.90940335390724], 'gcj02', 'bd09ll'), check: assertPosition },
+      { name: '单点 BD-09 -> GCJ-02', run: () => giserConvertCrs.transformPoint([116.409616, 39.915681], 'bd09ll', 'gcj02'), check: assertPosition },
+      { name: '单点 WGS-84 -> BD-09', run: () => giserConvertCrs.transformPoint([116.397, 39.908], 'wgs84', 'bd09'), check: assertPosition },
+      { name: '单点 BD-09 -> WGS-84', run: () => giserConvertCrs.transformPoint([116.409616, 39.915681], 'bd-09', 'wgs84'), check: assertPosition },
+      { name: 'EPSG:4326 别名', run: () => giserConvertCrs.transformPoint([116.397, 39.908], 'EPSG:4326', 'gcj-02'), check: assertPosition },
+      { name: '中国境外坐标保持不变', run: () => giserConvertCrs.transformPoint([-73.9857, 40.7484], 'wgs84', 'gcj02'), check: result => { assert(closeTo(result[0], -73.9857), '境外经度不应变化'); assert(closeTo(result[1], 40.7484), '境外纬度不应变化'); } },
+      { name: '3D 坐标保留高度', run: () => giserConvertCrs.transformPoint([116.397, 39.908, 45], 'wgs84', 'gcj02'), check: result => { assertPosition(result); assert(result[2] === 45, '高度值未保留'); } },
+      { name: '点数组转换', run: () => giserConvertCrs.transformPoints([[116.397, 39.908], [117.2, 40.1]], 'wgs84', 'gcj02'), check: result => { assert(result.length === 2, '点数组长度不正确'); result.forEach(assertPosition); } },
+      { name: 'GeoJSON Point', run: () => giserConvertCrs.transformGeoJSON({ type: 'Point', coordinates: [116.397, 39.908] }, 'wgs84', 'gcj02'), check: result => { assert(result.type === 'Point', '类型应为 Point'); assertPosition(result.coordinates); } },
+      { name: 'GeoJSON LineString', run: () => giserConvertCrs.transformGeoJSON({ type: 'LineString', coordinates: [[116.397, 39.908], [117.2, 40.1]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates.length === 2, '线坐标数量不正确') },
+      { name: 'GeoJSON Polygon', run: () => giserConvertCrs.transformGeoJSON({ type: 'Polygon', coordinates: [[[116, 39], [117, 39], [117, 40], [116, 39]]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates[0].length === 4, '面坐标数量不正确') },
+      { name: 'GeoJSON MultiPoint', run: () => giserConvertCrs.transformGeoJSON({ type: 'MultiPoint', coordinates: [[116, 39], [117, 40]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates.length === 2, '多点数量不正确') },
+      { name: 'GeoJSON MultiLineString', run: () => giserConvertCrs.transformGeoJSON({ type: 'MultiLineString', coordinates: [[[116, 39], [117, 40]], [[118, 41], [119, 42]]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates.length === 2, '多线数量不正确') },
+      { name: 'GeoJSON MultiPolygon', run: () => giserConvertCrs.transformGeoJSON({ type: 'MultiPolygon', coordinates: [[[[116, 39], [117, 39], [117, 40], [116, 39]]]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates[0][0].length === 4, '多面坐标数量不正确') },
+      { name: 'GeoJSON Feature 保留属性', run: () => giserConvertCrs.transformGeoJSON({ type: 'Feature', properties: { name: '测试点' }, geometry: { type: 'Point', coordinates: [116.397, 39.908] } }, 'wgs84', 'gcj02'), check: result => { assert(result.properties.name === '测试点', '属性未保留'); assertPosition(result.geometry.coordinates); } },
+      { name: 'GeoJSON FeatureCollection', run: () => giserConvertCrs.transformGeoJSON({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { name: '点' }, geometry: { type: 'Point', coordinates: [116, 39] } }, { type: 'Feature', properties: { name: '线' }, geometry: { type: 'LineString', coordinates: [[116, 39], [117, 40]] } }] }, 'wgs84', 'gcj02'), check: result => assert(result.features.length === 2, 'Feature 数量不正确') },
+      { name: 'GeoJSON GeometryCollection', run: () => giserConvertCrs.transformGeoJSON({ type: 'GeometryCollection', geometries: [{ type: 'Point', coordinates: [116, 39] }, { type: 'LineString', coordinates: [[116, 39], [117, 40]] }] }, 'wgs84', 'gcj02'), check: result => assert(result.geometries.length === 2, 'Geometry 数量不正确') },
+      { name: 'WKT parse POINT', run: () => giserConvertCrs.WKT.parse('POINT(116 39)'), check: result => { assert(result.type === 'Point', '类型应为 Point'); assertPosition(result.coordinates); } },
+      { name: 'WKT parse LINESTRING', run: () => giserConvertCrs.WKT.parse('LINESTRING(116 39, 117 40)'), check: result => assert(result.coordinates.length === 2, '线坐标数量不正确') },
+      { name: 'WKT parse POLYGON', run: () => giserConvertCrs.WKT.parse('POLYGON((116 39, 117 39, 117 40, 116 39))'), check: result => assert(result.coordinates[0].length === 4, '面坐标数量不正确') },
+      { name: 'WKT parse MULTIPOINT', run: () => giserConvertCrs.WKT.parse('MULTIPOINT((116 39), (117 40))'), check: result => assert(result.coordinates.length === 2, '多点数量不正确') },
+      { name: 'WKT parse MULTILINESTRING', run: () => giserConvertCrs.WKT.parse('MULTILINESTRING((116 39, 117 40), (118 41, 119 42))'), check: result => assert(result.coordinates.length === 2, '多线数量不正确') },
+      { name: 'WKT parse MULTIPOLYGON', run: () => giserConvertCrs.WKT.parse('MULTIPOLYGON(((116 39, 117 39, 117 40, 116 39)))'), check: result => assert(result.coordinates[0][0].length === 4, '多面坐标数量不正确') },
+      { name: 'WKT stringify 3D LineString', run: () => giserConvertCrs.WKT.stringify({ type: 'LineString', coordinates: [[116, 39, 10], [117, 40, 20]] }), check: result => assert(result === 'LINESTRING(116 39 10, 117 40 20)', '3D WKT 输出不正确') },
+      { name: 'WKT transform POINT', run: () => giserConvertCrs.transformWKT('POINT(116 39)', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'POINT') },
+      { name: 'WKT transform LINESTRING', run: () => giserConvertCrs.transformWKT('LINESTRING(116 39, 117 40)', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'LINESTRING') },
+      { name: 'WKT transform POLYGON', run: () => giserConvertCrs.transformWKT('POLYGON((116 39, 117 39, 117 40, 116 39))', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'POLYGON') },
+      { name: 'WKT transform MULTIPOINT', run: () => giserConvertCrs.transformWKT('MULTIPOINT((116 39), (117 40))', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'MULTIPOINT') },
+      { name: 'WKT transform MULTILINESTRING', run: () => giserConvertCrs.transformWKT('MULTILINESTRING((116 39, 117 40), (118 41, 119 42))', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'MULTILINESTRING') },
+      { name: 'WKT transform MULTIPOLYGON', run: () => giserConvertCrs.transformWKT('MULTIPOLYGON(((116 39, 117 39, 117 40, 116 39)))', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'MULTIPOLYGON') },
+      { name: '高精度 GCJ-02 -> WGS-84 反算', run: () => { const origin = [116.397, 39.908]; const gcj = giserConvertCrs.GPS.wgs84_gcj02(origin[0], origin[1]); return giserConvertCrs.GPS.gcj02_wgs84_precise(gcj[0], gcj[1]); }, check: result => { assert(closeTo(result[0], 116.397, 1e-7), '经度反算误差过大'); assert(closeTo(result[1], 39.908, 1e-7), '纬度反算误差过大'); } },
+      { name: '非法 CRS 抛出错误', run: () => { try { giserConvertCrs.transformPoint([116, 39], 'wgs84', 'epsg:3857'); } catch (error) { return error.message; } throw new Error('未抛出错误'); }, check: result => assert(result.includes('Unsupported CRS'), '错误信息不正确') },
+      { name: '非法 WKT 抛出错误', run: () => { try { giserConvertCrs.WKT.parse('LINESTRING(116 39, bad)'); } catch (error) { return error.message; } throw new Error('未抛出错误'); }, check: result => assert(result.includes('Invalid WKT coordinate'), '错误信息不正确') }
     ];
 
     const renderPendingTests = () => {
@@ -207,10 +207,10 @@
     document.getElementById('clearTests').addEventListener('click', renderPendingTests);
     document.getElementById('convertPoint').addEventListener('click', () => show('pointOutput', () => {
       const coord = document.getElementById('pointInput').value.split(',').map(value => Number(value.trim()));
-      return geometryCrs.transformPoint(coord, document.getElementById('pointFrom').value, document.getElementById('pointTo').value);
+      return giserConvertCrs.transformPoint(coord, document.getElementById('pointFrom').value, document.getElementById('pointTo').value);
     }));
-    document.getElementById('convertWkt').addEventListener('click', () => show('wktOutput', () => geometryCrs.transformWKT(document.getElementById('wktInput').value, document.getElementById('wktFrom').value, document.getElementById('wktTo').value)));
-    document.getElementById('convertGeojson').addEventListener('click', () => show('geojsonOutput', () => geometryCrs.transformGeoJSON(JSON.parse(document.getElementById('geojsonInput').value), 'wgs84', 'gcj02')));
+    document.getElementById('convertWkt').addEventListener('click', () => show('wktOutput', () => giserConvertCrs.transformWKT(document.getElementById('wktInput').value, document.getElementById('wktFrom').value, document.getElementById('wktTo').value)));
+    document.getElementById('convertGeojson').addEventListener('click', () => show('geojsonOutput', () => giserConvertCrs.transformGeoJSON(JSON.parse(document.getElementById('geojsonInput').value), 'wgs84', 'gcj02')));
 
     renderPendingTests();
     document.getElementById('convertPoint').click();

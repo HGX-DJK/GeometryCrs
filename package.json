@@ -1,9 +1,9 @@
 {
-  "name": "geometry-crs",
+  "name": "giser-convert-crs",
   "version": "1.0.0",
   "description": "China CRS geometry conversion library for WGS-84, GCJ-02, BD-09, GeoJSON and WKT.",
-  "main": "dist/geometryCrs.umd.js",
-  "module": "dist/geometryCrs.esm.js",
+  "main": "dist/giserConvertCrs.umd.js",
+  "module": "dist/giserConvertCrs.esm.js",
   "types": "dist/index.d.ts",
   "files": [
     "dist"
