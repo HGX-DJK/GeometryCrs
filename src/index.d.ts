@@ -6,6 +6,7 @@ export type CRS =
   | '4326'
   | 'cgcs2000'
   | 'cgcs-2000'
+  | 'cgcs 2000'
   | 'EPSG:4490'
   | 'epsg:4490'
   | '4490'
@@ -93,8 +94,15 @@ export interface FeatureCollection<G = Geometry> {
 export type GeoJSON = Geometry | Feature | FeatureCollection;
 
 export interface TransformOptions {
+  /**
+   * Use fixed-point iteration when inverting a datum shift.
+   * Defaults to `true`; applies to every target CRS, not just WGS-84.
+   * Precision cost: ~1e-10 deg instead of ~5e-7 deg (~5-8 cm).
+   */
   precise?: boolean;
+  /** Transform in place, skipping all result-array allocation. */
   mutate?: boolean;
+  /** Decimal places kept when the output is a WKT string. */
   precision?: number;
 }
 
@@ -106,6 +114,9 @@ export interface GPSApi {
   PI: number;
   x_pi: number;
   EARTH_RADIUS: number;
+  delta(lat: number, lon: number): { lat: number; lon: number };
+  transformLat(x: number, y: number): number;
+  transformLon(x: number, y: number): number;
   wgs84_gcj02(lon: number, lat: number): [number, number];
   gcj02_wgs84(lon: number, lat: number): [number, number];
   gcj02_wgs84_precise(lon: number, lat: number): [number, number];
@@ -117,16 +128,22 @@ export interface GPSApi {
   bd09ll_wgs84_precise(lon: number, lat: number): [number, number];
   wgs84_epsg3857(lon: number, lat: number): [number, number];
   epsg3857_wgs84(x: number, y: number): [number, number];
-  gcj02_epsg3857(lon: number, lat: number): [number, number];
+  /** `precise` (default `true`) selects the fixed-point datum inverse. */
+  gcj02_epsg3857(lon: number, lat: number, precise?: boolean): [number, number];
   epsg3857_gcj02(x: number, y: number): [number, number];
-  bd09ll_epsg3857(lon: number, lat: number): [number, number];
+  /** `precise` (default `true`) selects the fixed-point datum inverse. */
+  bd09ll_epsg3857(lon: number, lat: number, precise?: boolean): [number, number];
   epsg3857_bd09ll(x: number, y: number): [number, number];
+  /** Alias of `wgs84_gcj02`, returning `[lon, lat]`. */
+  gcj_encrypt(lon: number, lat: number): [number, number];
   outOfChina(lat: number, lon: number): boolean;
   outOfChina(coord: [number, number] | number[]): boolean;
 }
 
+export type CanonicalCRS = 'wgs84' | 'gcj02' | 'bd09ll' | 'epsg3857';
+
 export interface ProjectionTransformApi {
-  crs: Record<'wgs84' | 'gcj02' | 'bd09ll' | 'epsg3857', string>;
+  crs: Record<CanonicalCRS | 'cgcs2000', string>;
   transform<T extends Position | Position[] | GeoJSON>(
     source: T,
     fromCRS: CRS,

@@ -17,11 +17,17 @@
     "dist"
   ],
   "scripts": {
-    "build": "rollup -c && node scripts/copy-types.js",
+    "build": "node scripts/clean.js && rollup -c && node scripts/copy-types.js",
     "dev": "rollup -c -w",
-    "test": "node --test scripts/test.js"
+    "test": "node --test scripts/test.js",
+    "bench": "node --expose-gc scripts/bench.js",
+    "prepack": "npm run build"
   },
   "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.0",
     "@rollup/plugin-node-resolve": "^16.0.0",

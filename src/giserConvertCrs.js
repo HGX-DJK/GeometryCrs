@@ -8,9 +8,11 @@ const giserConvertCrs = {
   WKT,
 
   transform(input, fromCRS, toCRS, options) {
-    if (input == null || input === '') return null;
+    if (input == null) return null;
 
     if (typeof input === 'string') {
+      // blank / whitespace-only WKT is treated as "no geometry", not an error
+      if (!input.trim()) return null;
       const geoJSON = WKT.parse(input);
       const transformed = ProjectionTransform.transform(geoJSON, fromCRS, toCRS, options);
       return WKT.stringify(transformed, options);

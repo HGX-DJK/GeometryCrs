@@ -142,9 +142,9 @@
   <!-- 优先加载本地产物，若不存在则回退至远程 CDN -->
   <script src="./dist/giserConvertCrs.umd.js"></script>
   <script>
-    if (!window.giserConvertCrs) {
-      document.write('<script src="https://unpkg.com/giser-convert-crs/dist/giserConvertCrs.umd.js"><\/script>');
-    }
+    // if (!window.giserConvertCrs) {
+    //   document.write('<script src="https://unpkg.com/giser-convert-crs/dist/giserConvertCrs.umd.js"><\/script>');
+    // }
   </script>
   <script>
     const format = value => typeof value === 'string' ? value : JSON.stringify(value, null, 2);

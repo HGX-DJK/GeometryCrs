@@ -207,3 +207,194 @@ describe('Unified giserConvertCrs Facade', () => {
     );
   });
 });
+
+describe('Regression: options.precise reaches EPSG:3857 paths', () => {
+  const gcj = GPS.wgs84_gcj02(116.397, 39.908);
+  const bd = GPS.gcj02_bd09ll(gcj[0], gcj[1]);
+
+  it('precise:false actually changes gcj02 -> EPSG:3857', () => {
+    const precise = ProjectionTransform.transform([gcj[0], gcj[1]], 'gcj02', 'EPSG:3857', { precise: true });
+    const fast = ProjectionTransform.transform([gcj[0], gcj[1]], 'gcj02', 'EPSG:3857', { precise: false });
+    assert.notDeepEqual(fast, precise, 'precise:false must not be silently ignored');
+
+    // and it must agree with the approximate inverse + projection
+    const approxWgs = GPS.gcj02_wgs84(gcj[0], gcj[1]);
+    const expected = GPS.wgs84_epsg3857(approxWgs[0], approxWgs[1]);
+    closeTo(fast[0], expected[0], 1e-6);
+    closeTo(fast[1], expected[1], 1e-6);
+  });
+
+  it('precise:false actually changes bd09ll -> EPSG:3857', () => {
+    const precise = ProjectionTransform.transform([bd[0], bd[1]], 'bd09ll', 'EPSG:3857', { precise: true });
+    const fast = ProjectionTransform.transform([bd[0], bd[1]], 'bd09ll', 'EPSG:3857', { precise: false });
+    assert.notDeepEqual(fast, precise);
+  });
+
+  it('precise:true remains the default and is bit-identical to no flag', () => {
+    const withFlag = ProjectionTransform.transform([gcj[0], gcj[1]], 'gcj02', 'EPSG:3857', { precise: true });
+    const without = ProjectionTransform.transform([gcj[0], gcj[1]], 'gcj02', 'EPSG:3857');
+    assert.deepEqual(withFlag, without);
+  });
+
+  it('precise inverse keeps sub-millimetre accuracy on EPSG:3857', () => {
+    const back = ProjectionTransform.transform(
+      ProjectionTransform.transform([gcj[0], gcj[1]], 'gcj02', 'EPSG:3857'),
+      'EPSG:3857', 'gcj02'
+    );
+    closeTo(back[0], gcj[0], 1e-10);
+    closeTo(back[1], gcj[1], 1e-10);
+  });
+});
+
+describe('Regression: CGCS2000 proj4 support', () => {
+  const wgsResult = ProjectionTransform.transform([116.397, 39.908], 'wgs84', 'gcj02');
+  const asProj4 = (proj) => ({ type: 'proj4', properties: { proj } });
+
+  it('accepts the standard CGCS2000 proj4 definition', () => {
+    const res = ProjectionTransform.transform(
+      [116.397, 39.908],
+      asProj4('+proj=longlat +ellps=GRS80 +no_defs'),
+      'gcj02'
+    );
+    assert.deepEqual(res, wgsResult);
+  });
+
+  it('accepts the canonical WGS-84 proj4 definitions', () => {
+    for (const proj of [
+      '+proj=longlat +ellps=WGS84 +no_defs',
+      '+proj=longlat +ellps=WGS84',
+      '+proj=longlat +datum=WGS84',
+      '+proj=longlat +a=6378137 +b=6356752.314245 +no_defs'
+    ]) {
+      const res = ProjectionTransform.transform([116.397, 39.908], asProj4(proj), 'gcj02');
+      assert.deepEqual(res, wgsResult, `proj4 variant should resolve: ${proj}`);
+    }
+  });
+
+  it('tolerates irregular whitespace and casing in proj4 strings', () => {
+    const res = ProjectionTransform.transform(
+      [116.397, 39.908],
+      asProj4('  +PROJ=longlat   +ELLPS=GRS80  +NO_DEFS '),
+      'gcj02'
+    );
+    assert.deepEqual(res, wgsResult);
+  });
+
+  it('folds CGCS2000 onto WGS-84 as a no-op transform', () => {
+    // Both aliases resolve to the same datum, so this must be identity.
+    const res = ProjectionTransform.transform(
+      [116.397, 39.908],
+      'EPSG:4490',
+      asProj4('+proj=longlat +ellps=GRS80 +no_defs')
+    );
+    assert.deepEqual(res, [116.397, 39.908]);
+  });
+
+  it('still rejects genuinely unknown CRS objects', () => {
+    assert.throws(
+      () => ProjectionTransform.transform([116, 39], 'EPSG:4326', asProj4('+proj=nonsense')),
+      /Unsupported CRS object/
+    );
+  });
+
+  it('exposes a canonical proj4 entry for cgcs2000', () => {
+    assert.equal(typeof ProjectionTransform.crs.cgcs2000, 'string');
+  });
+});
+
+describe('Regression: API convention consistency', () => {
+  it('gcj_encrypt matches wgs84_gcj02 and returns [lon, lat]', () => {
+    const viaEncrypt = GPS.gcj_encrypt(116.397, 39.908);
+    const viaForward = GPS.wgs84_gcj02(116.397, 39.908);
+    assert.ok(Array.isArray(viaEncrypt), 'should return an array like every other method');
+    assert.deepEqual(viaEncrypt, viaForward);
+  });
+
+  it('treats blank WKT input as "no geometry" rather than throwing', () => {
+    assert.equal(giserConvertCrs.transform('   ', 'wgs84', 'gcj02'), null);
+    assert.equal(giserConvertCrs.transform('', 'wgs84', 'gcj02'), null);
+    assert.equal(giserConvertCrs.transform('\n\t ', 'wgs84', 'gcj02'), null);
+  });
+});
+
+describe('In-place transformation of nested structures', () => {
+  it('mutates a FeatureCollection without cloning geometries', () => {
+    const fc = {
+      type: 'FeatureCollection',
+      features: [
+        { type: 'Feature', properties: null, geometry: { type: 'Point', coordinates: [116.397, 39.908] } },
+        { type: 'Feature', properties: null, geometry: { type: 'LineString', coordinates: [[116, 39], [117, 40]] } }
+      ]
+    };
+    const geometryBefore = fc.features[0].geometry;
+    const coordBefore = fc.features[0].geometry.coordinates;
+
+    const res = ProjectionTransform.transform(fc, 'wgs84', 'gcj02', { mutate: true });
+
+    assert.equal(res, fc, 'root object should be reused');
+    assert.equal(res.features[0].geometry, geometryBefore, 'geometry object should be reused');
+    assert.equal(res.features[0].geometry.coordinates, coordBefore, 'coordinate array should be reused');
+    assert.notEqual(coordBefore[0], 116.397, 'coordinate should have been rewritten in place');
+  });
+
+  it('non-mutate leaves the source untouched', () => {
+    const fc = {
+      type: 'FeatureCollection',
+      features: [
+        { type: 'Feature', properties: null, geometry: { type: 'Point', coordinates: [116.397, 39.908] } }
+      ]
+    };
+    const res = ProjectionTransform.transform(fc, 'wgs84', 'gcj02');
+    assert.deepEqual(fc.features[0].geometry.coordinates, [116.397, 39.908]);
+    assert.notEqual(res.features[0].geometry.coordinates[0], 116.397);
+  });
+});
+
+describe('Round-trip property tests', () => {
+  const pairs = [
+    ['wgs84', 'gcj02'],
+    ['gcj02', 'wgs84'],
+    ['gcj02', 'bd09ll'],
+    ['bd09ll', 'gcj02'],
+    ['wgs84', 'EPSG:3857'],
+    ['EPSG:3857', 'wgs84']
+  ];
+
+  it('every supported pair round-trips across China within 1e-9 deg', () => {
+    for (const [from, to] of pairs) {
+      let worst = 0;
+      for (let i = 0; i < 400; i++) {
+        const lon = 73 + (i % 40) * 1.5;
+        const lat = 18 + (i % 30) * 1.1;
+        const a = ProjectionTransform.transform([lon, lat], 'wgs84', from);
+        const b = ProjectionTransform.transform(a, from, to);
+        const back = ProjectionTransform.transform(b, to, 'wgs84');
+        worst = Math.max(worst, Math.abs(back[0] - lon), Math.abs(back[1] - lat));
+      }
+      assert.ok(worst <= 1e-9, `${from} -> ${to} round-trip drifted by ${worst}`);
+    }
+  });
+
+  it('out-of-China coordinates pass through untouched', () => {
+    for (const p of [[-74.006, 40.7128], [139.6917, 35.6895], [2.3522, 48.8566], [151.2093, -33.8688]]) {
+      const out = ProjectionTransform.transform(p, 'wgs84', 'gcj02');
+      assert.deepEqual(out, p, 'offsets must not be applied outside the China bounding box');
+    }
+  });
+
+  it('preserves elevation on 3D coordinates through every datum pair', () => {
+    for (const [from, to] of [['wgs84', 'gcj02'], ['gcj02', 'wgs84'], ['gcj02', 'bd09ll'], ['bd09ll', 'gcj02']]) {
+      const out = ProjectionTransform.transform([116.397, 39.908, 88.5], from, to);
+      assert.equal(out[2], 88.5);
+      assert.ok(out.length >= 3, 'dimension should be retained');
+    }
+  });
+
+  it('identity transform returns an equivalent but separate structure', () => {
+    const src = [[116.397, 39.908], [117.2, 40.1]];
+    const out = ProjectionTransform.transform(src, 'wgs84', 'EPSG:4326');
+    assert.deepEqual(out, src);
+    assert.notEqual(out, src);
+    assert.notEqual(out[0], src[0]);
+  });
+});
