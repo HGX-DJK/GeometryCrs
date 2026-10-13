@@ -194,6 +194,9 @@
       { name: 'WKT transform POINT', run: () => giserConvertCrs.transformWKT('POINT(116 39)', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'POINT') },
       { name: 'WKT transform POLYGON', run: () => giserConvertCrs.transformWKT('POLYGON((116 39, 117 39, 117 40, 116 39))', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'POLYGON') },
       { name: '高精度 GCJ-02 -> WGS-84 反算', run: () => { const origin = [116.397, 39.908]; const gcj = giserConvertCrs.GPS.wgs84_gcj02(origin[0], origin[1]); return giserConvertCrs.GPS.gcj02_wgs84_precise(gcj[0], gcj[1]); }, check: result => { assert(closeTo(result[0], 116.397, 1e-8), '经度反算误差过大'); assert(closeTo(result[1], 39.908, 1e-8), '纬度反算误差过大'); } },
+      { name: '对象坐标 { lng, lat } (高德/百度格式)', run: () => giserConvertCrs.transformPoint({ lng: 116.397, lat: 39.908 }, 'wgs84', 'gcj02'), check: result => assert(result && 'lng' in result && closeTo(result.lng, 116.403243, 1e-4), '对象经度不正确') },
+      { name: '对象坐标 { longitude, latitude } (微信小程序格式)', run: () => giserConvertCrs.transformPoint({ longitude: 116.397, latitude: 39.908 }, 'wgs84', 'gcj02'), check: result => assert(result && 'longitude' in result && closeTo(result.longitude, 116.403243, 1e-4), '小程序经度不正确') },
+      { name: '对象坐标数组 [{ lng, lat }, ...]', run: () => giserConvertCrs.transformPoints([{ lng: 116.397, lat: 39.908 }, { lng: 117.2, lat: 40.1 }], 'wgs84', 'gcj02'), check: result => assert(result.length === 2 && 'lng' in result[0], '对象数组转换失败') },
       { name: '非法 CRS 抛出错误', run: () => { try { giserConvertCrs.transformPoint([116, 39], 'wgs84', 'unsupported-crs'); } catch (error) { return error.message; } throw new Error('未抛出错误'); }, check: result => assert(result.includes('Unsupported CRS'), '错误信息不正确') },
       { name: '非法 WKT 抛出错误', run: () => { try { giserConvertCrs.WKT.parse('LINESTRING(116 39, bad)'); } catch (error) { return error.message; } throw new Error('未抛出错误'); }, check: result => assert(result.includes('Invalid WKT coordinate'), '错误信息不正确') }
     ];
@@ -235,7 +238,13 @@
     document.getElementById('runAllTests').addEventListener('click', runAllTests);
     document.getElementById('clearTests').addEventListener('click', renderPendingTests);
     document.getElementById('convertPoint').addEventListener('click', () => show('pointOutput', () => {
-      const coord = document.getElementById('pointInput').value.split(',').map(value => Number(value.trim()));
+      const val = document.getElementById('pointInput').value.trim();
+      let coord;
+      if (val.startsWith('{')) {
+        coord = JSON.parse(val);
+      } else {
+        coord = val.split(',').map(value => Number(value.trim()));
+      }
       return giserConvertCrs.transformPoint(coord, document.getElementById('pointFrom').value, document.getElementById('pointTo').value);
     }));
     document.getElementById('convertWkt').addEventListener('click', () => show('wktOutput', () => giserConvertCrs.transformWKT(document.getElementById('wktInput').value, document.getElementById('wktFrom').value, document.getElementById('wktTo').value)));

@@ -33,6 +33,33 @@ export type CRS =
 
 export type Position = [number, number] | [number, number, number] | number[];
 
+export interface LngLatCoord {
+  lng: number;
+  lat: number;
+  [key: string]: unknown;
+}
+
+export interface LonLatCoord {
+  lon: number;
+  lat: number;
+  [key: string]: unknown;
+}
+
+export interface LongitudeLatitudeCoord {
+  longitude: number;
+  latitude: number;
+  [key: string]: unknown;
+}
+
+export interface XYCoord {
+  x: number;
+  y: number;
+  [key: string]: unknown;
+}
+
+export type CoordObject = LngLatCoord | LonLatCoord | LongitudeLatitudeCoord | XYCoord;
+export type PointCoord = Position | CoordObject;
+
 export interface Point {
   type: 'Point';
   coordinates: Position;
@@ -144,7 +171,7 @@ export type CanonicalCRS = 'wgs84' | 'gcj02' | 'bd09ll' | 'epsg3857';
 
 export interface ProjectionTransformApi {
   crs: Record<CanonicalCRS | 'cgcs2000', string>;
-  transform<T extends Position | Position[] | GeoJSON>(
+  transform<T extends Position | CoordObject | (Position | CoordObject)[] | GeoJSON>(
     source: T,
     fromCRS: CRS,
     toCRS: CRS,
@@ -162,14 +189,14 @@ export interface GiserConvertCrs {
   ProjectionTransform: ProjectionTransformApi;
   WKT: WKTApi;
   transform(input: string, fromCRS: CRS, toCRS: CRS, options?: TransformOptions): string;
-  transform<T extends Position | Position[] | GeoJSON>(
+  transform<T extends Position | CoordObject | (Position | CoordObject)[] | GeoJSON>(
     input: T,
     fromCRS: CRS,
     toCRS: CRS,
     options?: TransformOptions
   ): T;
-  transformPoint<T extends Position>(coord: T, fromCRS: CRS, toCRS: CRS, options?: TransformOptions): T;
-  transformPoints<T extends Position[]>(points: T, fromCRS: CRS, toCRS: CRS, options?: TransformOptions): T;
+  transformPoint<T extends Position | CoordObject>(coord: T, fromCRS: CRS, toCRS: CRS, options?: TransformOptions): T;
+  transformPoints<T extends (Position | CoordObject)[]>(points: T, fromCRS: CRS, toCRS: CRS, options?: TransformOptions): T;
   transformGeoJSON<T extends GeoJSON>(geojson: T, fromCRS: CRS, toCRS: CRS, options?: TransformOptions): T;
   transformWKT(wkt: string, fromCRS: CRS, toCRS: CRS, options?: TransformOptions): string;
 }

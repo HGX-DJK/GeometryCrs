@@ -140,6 +140,73 @@ describe('ProjectionTransform Engine', () => {
   });
 });
 
+describe('Object Coordinate Formats', () => {
+  const beijingWgs = [116.397, 39.908];
+
+  it('transforms { lng, lat } and preserves structure', () => {
+    const res = giserConvertCrs.transformPoint({ lng: beijingWgs[0], lat: beijingWgs[1] }, 'wgs84', 'gcj02');
+    assert.equal(typeof res, 'object');
+    assert.ok('lng' in res && 'lat' in res);
+    closeTo(res.lng, 116.403243, 1e-4);
+    closeTo(res.lat, 39.909403, 1e-4);
+  });
+
+  it('transforms { lon, lat }', () => {
+    const res = giserConvertCrs.transformPoint({ lon: beijingWgs[0], lat: beijingWgs[1] }, 'wgs84', 'gcj02');
+    assert.ok('lon' in res && 'lat' in res);
+    closeTo(res.lon, 116.403243, 1e-4);
+    closeTo(res.lat, 39.909403, 1e-4);
+  });
+
+  it('transforms { longitude, latitude } (WeChat mini-program format)', () => {
+    const res = giserConvertCrs.transformPoint({ longitude: beijingWgs[0], latitude: beijingWgs[1] }, 'wgs84', 'gcj02');
+    assert.ok('longitude' in res && 'latitude' in res);
+    closeTo(res.longitude, 116.403243, 1e-4);
+    closeTo(res.latitude, 39.909403, 1e-4);
+  });
+
+  it('transforms { x, y } (Math / Web Mercator format)', () => {
+    const res = giserConvertCrs.transformPoint({ x: beijingWgs[0], y: beijingWgs[1] }, 'wgs84', 'gcj02');
+    assert.ok('x' in res && 'y' in res);
+    closeTo(res.x, 116.403243, 1e-4);
+    closeTo(res.y, 39.909403, 1e-4);
+  });
+
+  it('case-insensitive key detection ({ Lng, Lat })', () => {
+    const res = giserConvertCrs.transformPoint({ Lng: beijingWgs[0], Lat: beijingWgs[1] }, 'wgs84', 'gcj02');
+    assert.ok('Lng' in res && 'Lat' in res);
+    closeTo(res.Lng, 116.403243, 1e-4);
+  });
+
+  it('preserves extra properties on coordinate object (id, name, altitude)', () => {
+    const item = { id: 101, name: '北京站', lng: beijingWgs[0], lat: beijingWgs[1], altitude: 45 };
+    const res = giserConvertCrs.transform(item, 'wgs84', 'gcj02');
+    assert.equal(res.id, 101);
+    assert.equal(res.name, '北京站');
+    assert.equal(res.altitude, 45);
+    closeTo(res.lng, 116.403243, 1e-4);
+  });
+
+  it('transforms array of coordinate objects via transformPoints / transform', () => {
+    const list = [
+      { lng: 116.397, lat: 39.908 },
+      { lng: 117.2, lat: 40.1 }
+    ];
+    const res = giserConvertCrs.transformPoints(list, 'wgs84', 'gcj02');
+    assert.equal(res.length, 2);
+    assert.ok('lng' in res[0]);
+    assert.ok('lng' in res[1]);
+    closeTo(res[0].lng, 116.403243, 1e-4);
+  });
+
+  it('supports options.mutate for coordinate objects', () => {
+    const point = { lng: 116.397, lat: 39.908 };
+    const res = giserConvertCrs.transform(point, 'wgs84', 'gcj02', { mutate: true });
+    assert.equal(res, point, 'mutate mode should return the same object reference');
+    closeTo(point.lng, 116.403243, 1e-4);
+  });
+});
+
 describe('WKT Parser & Stringifier', () => {
   it('parses and stringifies basic geometries', () => {
     const wktPoint = 'POINT(116.397 39.908)';

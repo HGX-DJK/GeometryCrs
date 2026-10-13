@@ -28,19 +28,43 @@ giserConvertCrs.transform([116.397, 39.908], 'cgcs2000', 'gcj02');
 
 ## 支持的输入格式
 
-### 单个点
+### 单个点（数组或对象）
+
+同时支持坐标数组与主流地图 SDK 的对象格式，转换后会自动保留原键名及其他业务扩展属性：
 
 ```js
-[116.397, 39.908]
-[116.397, 39.908, 45]
+// 1. 数组格式 [lon, lat] 或 3D [lon, lat, height]
+giserConvertCrs.transformPoint([116.397, 39.908], 'wgs84', 'gcj02');
+giserConvertCrs.transformPoint([116.397, 39.908, 45], 'wgs84', 'gcj02');
+
+// 2. 高德 / 百度格式 { lng, lat }
+giserConvertCrs.transformPoint({ lng: 116.397, lat: 39.908 }, 'wgs84', 'gcj02');
+// 返回: { lng: 116.403243..., lat: 39.909403... }
+
+// 3. 微信小程序 / H5 原生定位格式 { longitude, latitude }
+giserConvertCrs.transformPoint({ longitude: 116.397, latitude: 39.908 }, 'wgs84', 'gcj02');
+
+// 4. 平面墨卡托 / 数学格式 { x, y } 或 { lon, lat }
+giserConvertCrs.transformPoint({ x: 116.397, y: 39.908 }, 'wgs84', 'gcj02');
+
+// 5. 附带业务属性（自动保留其它字段）
+giserConvertCrs.transformPoint({ id: 101, name: '北京站', lng: 116.397, lat: 39.908, altitude: 45 }, 'wgs84', 'gcj02');
+// 返回: { id: 101, name: '北京站', lng: 116.403..., lat: 39.909..., altitude: 45 }
 ```
 
-### 点数组
+### 点数组（数组或对象数组）
 
 ```js
+// 数组形式
 [
   [116.397, 39.908],
   [117.2, 40.1]
+]
+
+// 对象数组形式
+[
+  { lng: 116.397, lat: 39.908 },
+  { lng: 117.2, lat: 40.1 }
 ]
 ```
 

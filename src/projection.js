@@ -112,6 +112,11 @@ const ProjectionTransform = {
       return transformCoord(source);
     }
 
+    const objInfo = this._extractCoordObject(source);
+    if (objInfo) {
+      return this._transformCoordObject(source, objInfo, transformCoord, options);
+    }
+
     if (Array.isArray(source)) {
       return this._transformCoordinateTree(source, transformCoord, options);
     }
@@ -220,7 +225,9 @@ const ProjectionTransform = {
   _transformCoordinateTree(coordinates, transformCoord, options = {}) {
     if (coordinates == null) return coordinates;
     if (this._isCoord(coordinates)) return transformCoord(coordinates);
-    if (!Array.isArray(coordinates)) throw new Error('Invalid coordinates: expected coordinate array.');
+    const objInfo = this._extractCoordObject(coordinates);
+    if (objInfo) return this._transformCoordObject(coordinates, objInfo, transformCoord, options);
+    if (!Array.isArray(coordinates)) throw new Error('Invalid coordinates: expected coordinate array or object.');
 
     if (options.mutate) {
       for (let i = 0; i < coordinates.length; i++) {
@@ -312,8 +319,56 @@ const ProjectionTransform = {
   _isCoord(coordinate) {
     return Array.isArray(coordinate) &&
       coordinate.length >= 2 &&
-      !Array.isArray(coordinate[0]) &&
-      !Array.isArray(coordinate[1]);
+      typeof coordinate[0] !== 'object' &&
+      typeof coordinate[1] !== 'object' &&
+      coordinate[0] !== undefined &&
+      coordinate[1] !== undefined;
+  },
+
+  _extractCoordObject(obj) {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+    if (typeof obj.type === 'string') return null;
+
+    const keys = Object.keys(obj);
+    let lonKey = null;
+    let latKey = null;
+
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      const lk = k.toLowerCase();
+      if (!lonKey && (lk === 'lng' || lk === 'lon' || lk === 'longitude' || lk === 'x')) {
+        lonKey = k;
+      } else if (!latKey && (lk === 'lat' || lk === 'latitude' || lk === 'y')) {
+        latKey = k;
+      }
+    }
+
+    if (!lonKey || !latKey) return null;
+
+    const lon = Number(obj[lonKey]);
+    const lat = Number(obj[latKey]);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
+
+    return { lonKey, latKey, lon, lat };
+  },
+
+  _isCoordObject(obj) {
+    return this._extractCoordObject(obj) !== null;
+  },
+
+  _transformCoordObject(obj, info, transformCoord, options = {}) {
+    const { lonKey, latKey, lon, lat } = info;
+    const res = transformCoord([lon, lat]);
+    if (options.mutate) {
+      obj[lonKey] = res[0];
+      obj[latKey] = res[1];
+      return obj;
+    }
+    return {
+      ...obj,
+      [lonKey]: res[0],
+      [latKey]: res[1]
+    };
   }
 };
 
