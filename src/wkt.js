@@ -4,7 +4,8 @@ const TYPE_MAP = {
   POLYGON: 'Polygon',
   MULTIPOINT: 'MultiPoint',
   MULTILINESTRING: 'MultiLineString',
-  MULTIPOLYGON: 'MultiPolygon'
+  MULTIPOLYGON: 'MultiPolygon',
+  GEOMETRYCOLLECTION: 'GeometryCollection'
 };
 
 const REVERSE_TYPE_MAP = Object.fromEntries(
@@ -27,6 +28,9 @@ const WKT = {
 
     const body = source.slice(header[0].length).trim();
     if (/^EMPTY$/i.test(body)) {
+      if (geoJSONType === 'GeometryCollection') {
+        return { type: geoJSONType, geometries: [] };
+      }
       return { type: geoJSONType, coordinates: this._emptyCoordinates(geoJSONType) };
     }
 
@@ -35,13 +39,21 @@ const WKT = {
     }
 
     const content = this._stripOuterParens(body);
+
+    if (geoJSONType === 'GeometryCollection') {
+      return {
+        type: 'GeometryCollection',
+        geometries: this._splitTopLevel(content).map(item => this.parse(item))
+      };
+    }
+
     return {
       type: geoJSONType,
       coordinates: this._parseCoordinates(content, geoJSONType)
     };
   },
 
-  stringify(geoJSON) {
+  stringify(geoJSON, options = {}) {
     if (!geoJSON || typeof geoJSON !== 'object' || !geoJSON.type) {
       throw new Error('Invalid GeoJSON.');
     }
@@ -49,10 +61,19 @@ const WKT = {
     const wktType = REVERSE_TYPE_MAP[geoJSON.type];
     if (!wktType) throw new Error(`Unsupported geometry type: ${geoJSON.type}.`);
 
+    const precision = typeof options === 'number' ? options : options?.precision;
+
+    if (geoJSON.type === 'GeometryCollection') {
+      if (!Array.isArray(geoJSON.geometries) || geoJSON.geometries.length === 0) {
+        return 'GEOMETRYCOLLECTION EMPTY';
+      }
+      return `GEOMETRYCOLLECTION(${geoJSON.geometries.map(geom => this.stringify(geom, options)).join(', ')})`;
+    }
+
     const coords = geoJSON.coordinates;
     if (this._isEmpty(coords)) return `${wktType} EMPTY`;
 
-    return `${wktType}(${this._stringifyCoordinates(coords, geoJSON.type)})`;
+    return `${wktType}(${this._stringifyCoordinates(coords, geoJSON.type, precision)})`;
   },
 
   _parseCoordinates(content, type) {
@@ -136,46 +157,49 @@ const WKT = {
     return this._stripOuterParens(trimmed);
   },
 
-  _stringifyCoordinates(coords, type) {
+  _stringifyCoordinates(coords, type, precision) {
     switch (type) {
       case 'Point':
-        return this._stringifyPoint(coords);
+        return this._stringifyPoint(coords, precision);
       case 'LineString':
-        return this._stringifyPointList(coords);
+        return this._stringifyPointList(coords, precision);
       case 'Polygon':
-        return this._stringifyPolygon(coords);
+        return this._stringifyPolygon(coords, precision);
       case 'MultiPoint':
-        return coords.map(point => `(${this._stringifyPoint(point)})`).join(', ');
+        return coords.map(point => `(${this._stringifyPoint(point, precision)})`).join(', ');
       case 'MultiLineString':
-        return coords.map(line => `(${this._stringifyPointList(line)})`).join(', ');
+        return coords.map(line => `(${this._stringifyPointList(line, precision)})`).join(', ');
       case 'MultiPolygon':
-        return coords.map(poly => `(${this._stringifyPolygon(poly)})`).join(', ');
+        return coords.map(poly => `(${this._stringifyPolygon(poly, precision)})`).join(', ');
       default:
         throw new Error(`Unsupported geometry type: ${type}.`);
     }
   },
 
-  _stringifyPoint(point) {
+  _stringifyPoint(point, precision) {
     if (!Array.isArray(point) || point.length < 2) throw new Error('Invalid coordinate.');
     return point.map(value => {
       const number = Number(value);
       if (!Number.isFinite(number)) throw new Error('Invalid coordinate value.');
+      if (typeof precision === 'number' && precision >= 0) {
+        return Number(number.toFixed(precision)).toString();
+      }
       return String(number);
     }).join(' ');
   },
 
-  _stringifyPointList(points) {
+  _stringifyPointList(points, precision) {
     if (!Array.isArray(points)) throw new Error('Invalid coordinate list.');
-    return points.map(point => this._stringifyPoint(point)).join(', ');
+    return points.map(point => this._stringifyPoint(point, precision)).join(', ');
   },
 
-  _stringifyPolygon(rings) {
+  _stringifyPolygon(rings, precision) {
     if (!Array.isArray(rings)) throw new Error('Invalid polygon coordinates.');
-    return rings.map(ring => `(${this._stringifyPointList(ring)})`).join(', ');
+    return rings.map(ring => `(${this._stringifyPointList(ring, precision)})`).join(', ');
   },
 
   _emptyCoordinates(type) {
-    return type === 'Point' ? [] : [];
+    return [];
   },
 
   _isEmpty(coords) {

@@ -7,31 +7,32 @@ const giserConvertCrs = {
   ProjectionTransform,
   WKT,
 
-  transform(input, fromCRS, toCRS) {
+  transform(input, fromCRS, toCRS, options) {
     if (input == null || input === '') return null;
 
     if (typeof input === 'string') {
       const geoJSON = WKT.parse(input);
-      return WKT.stringify(ProjectionTransform.transform(geoJSON, fromCRS, toCRS));
+      const transformed = ProjectionTransform.transform(geoJSON, fromCRS, toCRS, options);
+      return WKT.stringify(transformed, options);
     }
 
-    return ProjectionTransform.transform(input, fromCRS, toCRS);
+    return ProjectionTransform.transform(input, fromCRS, toCRS, options);
   },
 
-  transformPoint(coord, fromCRS, toCRS) {
-    return this.transform(coord, fromCRS, toCRS);
+  transformPoint(coord, fromCRS, toCRS, options) {
+    return this.transform(coord, fromCRS, toCRS, options);
   },
 
-  transformPoints(points, fromCRS, toCRS) {
-    return this.transform(points, fromCRS, toCRS);
+  transformPoints(points, fromCRS, toCRS, options) {
+    return this.transform(points, fromCRS, toCRS, options);
   },
 
-  transformGeoJSON(geoJSON, fromCRS, toCRS) {
-    return this.transform(geoJSON, fromCRS, toCRS);
+  transformGeoJSON(geoJSON, fromCRS, toCRS, options) {
+    return this.transform(geoJSON, fromCRS, toCRS, options);
   },
 
-  transformWKT(wkt, fromCRS, toCRS) {
-    return this.transform(wkt, fromCRS, toCRS);
+  transformWKT(wkt, fromCRS, toCRS, options) {
+    return this.transform(wkt, fromCRS, toCRS, options);
   }
 };
 

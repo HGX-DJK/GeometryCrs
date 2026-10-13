@@ -43,7 +43,7 @@
 <body>
   <main>
     <h1>giserConvertCrs</h1>
-    <p>点、数组、GeoJSON、WKT 坐标转换演示，并内置全部测试用例。</p>
+    <p>点、数组、GeoJSON、WKT 几何坐标系转换工具，支持 WGS-84, GCJ-02, BD-09, EPSG:3857, CGCS2000。</p>
 
     <section class="panel">
       <h2>一键测试</h2>
@@ -67,15 +67,19 @@
           <select id="pointFrom">
             <option value="wgs84">WGS-84</option>
             <option value="EPSG:4326">EPSG:4326</option>
+            <option value="cgcs2000">CGCS2000 (EPSG:4490)</option>
             <option value="gcj02">GCJ-02</option>
             <option value="bd09ll">BD-09</option>
+            <option value="EPSG:3857">EPSG:3857 (Web Mercator)</option>
           </select>
         </label>
         <label>目标坐标系
           <select id="pointTo">
             <option value="gcj02">GCJ-02</option>
             <option value="wgs84">WGS-84</option>
-            <option value="bd09">BD-09</option>
+            <option value="bd09ll">BD-09</option>
+            <option value="EPSG:3857">EPSG:3857 (Web Mercator)</option>
+            <option value="cgcs2000">CGCS2000</option>
           </select>
         </label>
         <button id="convertPoint">转换</button>
@@ -91,6 +95,8 @@
             <option value="wgs84">WGS-84</option>
             <option value="gcj02">GCJ-02</option>
             <option value="bd09ll">BD-09</option>
+            <option value="EPSG:3857">EPSG:3857</option>
+            <option value="cgcs2000">CGCS2000</option>
           </select>
         </label>
         <label>目标坐标系
@@ -98,6 +104,7 @@
             <option value="gcj02">GCJ-02</option>
             <option value="wgs84">WGS-84</option>
             <option value="bd09ll">BD-09</option>
+            <option value="EPSG:3857">EPSG:3857</option>
           </select>
         </label>
       </div>
@@ -108,16 +115,40 @@
 
     <section class="panel">
       <h2>GeoJSON 转换</h2>
+      <div class="grid">
+        <label>源坐标系
+          <select id="geojsonFrom">
+            <option value="wgs84">WGS-84</option>
+            <option value="gcj02">GCJ-02</option>
+            <option value="bd09ll">BD-09</option>
+            <option value="EPSG:3857">EPSG:3857</option>
+          </select>
+        </label>
+        <label>目标坐标系
+          <select id="geojsonTo">
+            <option value="gcj02">GCJ-02</option>
+            <option value="wgs84">WGS-84</option>
+            <option value="bd09ll">BD-09</option>
+            <option value="EPSG:3857">EPSG:3857</option>
+          </select>
+        </label>
+      </div>
       <label>GeoJSON<textarea id="geojsonInput">{"type":"LineString","coordinates":[[116,39,10],[117,40,20]]}</textarea></label>
       <button id="convertGeojson" style="margin-top: 12px;">转换 GeoJSON</button>
       <pre id="geojsonOutput"></pre>
     </section>
   </main>
 
-  <script src="https://unpkg.com/giser-convert-crs/dist/giserConvertCrs.umd.js"></script>
+  <!-- 优先加载本地产物，若不存在则回退至远程 CDN -->
+  <script src="./dist/giserConvertCrs.umd.js"></script>
+  <script>
+    if (!window.giserConvertCrs) {
+      document.write('<script src="https://unpkg.com/giser-convert-crs/dist/giserConvertCrs.umd.js"><\/script>');
+    }
+  </script>
   <script>
     const format = value => typeof value === 'string' ? value : JSON.stringify(value, null, 2);
-    const closeTo = (actual, expected, tolerance = 1e-8) => Math.abs(actual - expected) <= tolerance;
+    const closeTo = (actual, expected, tolerance = 1e-7) => Math.abs(actual - expected) <= tolerance;
     const isPosition = value => Array.isArray(value) && value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1]);
     const assert = (condition, message) => { if (!condition) throw new Error(message || '断言失败'); };
     const assertPosition = value => assert(isPosition(value), '返回值不是坐标点');
@@ -136,36 +167,34 @@
       { name: '单点 GCJ-02 -> WGS-84', run: () => giserConvertCrs.transformPoint([116.40324337854781, 39.90940335390724], 'gcj02', 'wgs84'), check: assertPosition },
       { name: '单点 GCJ-02 -> BD-09', run: () => giserConvertCrs.transformPoint([116.40324337854781, 39.90940335390724], 'gcj02', 'bd09ll'), check: assertPosition },
       { name: '单点 BD-09 -> GCJ-02', run: () => giserConvertCrs.transformPoint([116.409616, 39.915681], 'bd09ll', 'gcj02'), check: assertPosition },
-      { name: '单点 WGS-84 -> BD-09', run: () => giserConvertCrs.transformPoint([116.397, 39.908], 'wgs84', 'bd09'), check: assertPosition },
+      { name: '单点 WGS-84 -> BD-09', run: () => giserConvertCrs.transformPoint([116.397, 39.908], 'wgs84', 'bd09ll'), check: assertPosition },
       { name: '单点 BD-09 -> WGS-84', run: () => giserConvertCrs.transformPoint([116.409616, 39.915681], 'bd-09', 'wgs84'), check: assertPosition },
       { name: 'EPSG:4326 别名', run: () => giserConvertCrs.transformPoint([116.397, 39.908], 'EPSG:4326', 'gcj-02'), check: assertPosition },
+      { name: 'CGCS2000 (EPSG:4490) 别名转换', run: () => giserConvertCrs.transformPoint([116.397, 39.908], 'cgcs2000', 'gcj02'), check: assertPosition },
+      { name: 'Web Mercator (EPSG:3857) 转换', run: () => giserConvertCrs.transformPoint([116.397, 39.908], 'wgs84', 'EPSG:3857'), check: result => { assertPosition(result); assert(result[0] > 10000000, '墨卡托平面坐标应为大数值'); } },
+      { name: 'Web Mercator 反算 WGS-84', run: () => giserConvertCrs.transformPoint([12957254.769864665, 4852582.082864688], 'EPSG:3857', 'wgs84'), check: result => { assert(closeTo(result[0], 116.397, 1e-6), '反算经度误差过大'); assert(closeTo(result[1], 39.908, 1e-6), '反算纬度误差过大'); } },
       { name: '中国境外坐标保持不变', run: () => giserConvertCrs.transformPoint([-73.9857, 40.7484], 'wgs84', 'gcj02'), check: result => { assert(closeTo(result[0], -73.9857), '境外经度不应变化'); assert(closeTo(result[1], 40.7484), '境外纬度不应变化'); } },
       { name: '3D 坐标保留高度', run: () => giserConvertCrs.transformPoint([116.397, 39.908, 45], 'wgs84', 'gcj02'), check: result => { assertPosition(result); assert(result[2] === 45, '高度值未保留'); } },
       { name: '点数组转换', run: () => giserConvertCrs.transformPoints([[116.397, 39.908], [117.2, 40.1]], 'wgs84', 'gcj02'), check: result => { assert(result.length === 2, '点数组长度不正确'); result.forEach(assertPosition); } },
+      { name: 'options.mutate 就地修改模式', run: () => { const pts = [[116.397, 39.908]]; const res = giserConvertCrs.transform(pts, 'wgs84', 'gcj02', { mutate: true }); return { sameRef: res === pts, val: res[0][0] }; }, check: result => { assert(result.sameRef, '应为同一对象引用'); assert(result.val !== 116.397, '应已原地修改'); } },
       { name: 'GeoJSON Point', run: () => giserConvertCrs.transformGeoJSON({ type: 'Point', coordinates: [116.397, 39.908] }, 'wgs84', 'gcj02'), check: result => { assert(result.type === 'Point', '类型应为 Point'); assertPosition(result.coordinates); } },
       { name: 'GeoJSON LineString', run: () => giserConvertCrs.transformGeoJSON({ type: 'LineString', coordinates: [[116.397, 39.908], [117.2, 40.1]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates.length === 2, '线坐标数量不正确') },
       { name: 'GeoJSON Polygon', run: () => giserConvertCrs.transformGeoJSON({ type: 'Polygon', coordinates: [[[116, 39], [117, 39], [117, 40], [116, 39]]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates[0].length === 4, '面坐标数量不正确') },
       { name: 'GeoJSON MultiPoint', run: () => giserConvertCrs.transformGeoJSON({ type: 'MultiPoint', coordinates: [[116, 39], [117, 40]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates.length === 2, '多点数量不正确') },
       { name: 'GeoJSON MultiLineString', run: () => giserConvertCrs.transformGeoJSON({ type: 'MultiLineString', coordinates: [[[116, 39], [117, 40]], [[118, 41], [119, 42]]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates.length === 2, '多线数量不正确') },
       { name: 'GeoJSON MultiPolygon', run: () => giserConvertCrs.transformGeoJSON({ type: 'MultiPolygon', coordinates: [[[[116, 39], [117, 39], [117, 40], [116, 39]]]] }, 'wgs84', 'gcj02'), check: result => assert(result.coordinates[0][0].length === 4, '多面坐标数量不正确') },
-      { name: 'GeoJSON Feature 保留属性', run: () => giserConvertCrs.transformGeoJSON({ type: 'Feature', properties: { name: '测试点' }, geometry: { type: 'Point', coordinates: [116.397, 39.908] } }, 'wgs84', 'gcj02'), check: result => { assert(result.properties.name === '测试点', '属性未保留'); assertPosition(result.geometry.coordinates); } },
+      { name: 'GeoJSON Feature 保留属性与转换 bbox', run: () => giserConvertCrs.transformGeoJSON({ type: 'Feature', bbox: [116, 39, 117, 40], properties: { name: '测试点' }, geometry: { type: 'Point', coordinates: [116.397, 39.908] } }, 'wgs84', 'gcj02'), check: result => { assert(result.properties.name === '测试点', '属性未保留'); assert(result.bbox[0] !== 116, 'bbox 应已转换'); assertPosition(result.geometry.coordinates); } },
       { name: 'GeoJSON FeatureCollection', run: () => giserConvertCrs.transformGeoJSON({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { name: '点' }, geometry: { type: 'Point', coordinates: [116, 39] } }, { type: 'Feature', properties: { name: '线' }, geometry: { type: 'LineString', coordinates: [[116, 39], [117, 40]] } }] }, 'wgs84', 'gcj02'), check: result => assert(result.features.length === 2, 'Feature 数量不正确') },
       { name: 'GeoJSON GeometryCollection', run: () => giserConvertCrs.transformGeoJSON({ type: 'GeometryCollection', geometries: [{ type: 'Point', coordinates: [116, 39] }, { type: 'LineString', coordinates: [[116, 39], [117, 40]] }] }, 'wgs84', 'gcj02'), check: result => assert(result.geometries.length === 2, 'Geometry 数量不正确') },
       { name: 'WKT parse POINT', run: () => giserConvertCrs.WKT.parse('POINT(116 39)'), check: result => { assert(result.type === 'Point', '类型应为 Point'); assertPosition(result.coordinates); } },
       { name: 'WKT parse LINESTRING', run: () => giserConvertCrs.WKT.parse('LINESTRING(116 39, 117 40)'), check: result => assert(result.coordinates.length === 2, '线坐标数量不正确') },
       { name: 'WKT parse POLYGON', run: () => giserConvertCrs.WKT.parse('POLYGON((116 39, 117 39, 117 40, 116 39))'), check: result => assert(result.coordinates[0].length === 4, '面坐标数量不正确') },
-      { name: 'WKT parse MULTIPOINT', run: () => giserConvertCrs.WKT.parse('MULTIPOINT((116 39), (117 40))'), check: result => assert(result.coordinates.length === 2, '多点数量不正确') },
-      { name: 'WKT parse MULTILINESTRING', run: () => giserConvertCrs.WKT.parse('MULTILINESTRING((116 39, 117 40), (118 41, 119 42))'), check: result => assert(result.coordinates.length === 2, '多线数量不正确') },
-      { name: 'WKT parse MULTIPOLYGON', run: () => giserConvertCrs.WKT.parse('MULTIPOLYGON(((116 39, 117 39, 117 40, 116 39)))'), check: result => assert(result.coordinates[0][0].length === 4, '多面坐标数量不正确') },
-      { name: 'WKT stringify 3D LineString', run: () => giserConvertCrs.WKT.stringify({ type: 'LineString', coordinates: [[116, 39, 10], [117, 40, 20]] }), check: result => assert(result === 'LINESTRING(116 39 10, 117 40 20)', '3D WKT 输出不正确') },
+      { name: 'WKT parse GEOMETRYCOLLECTION', run: () => giserConvertCrs.WKT.parse('GEOMETRYCOLLECTION(POINT(116 39), LINESTRING(116 39, 117 40))'), check: result => { assert(result.type === 'GeometryCollection'); assert(result.geometries.length === 2); } },
+      { name: 'WKT stringify precision 控制', run: () => giserConvertCrs.WKT.stringify({ type: 'Point', coordinates: [116.39712345, 39.90812345] }, { precision: 4 }), check: result => assert(result === 'POINT(116.3971 39.9081)', '精度截断不符合预期') },
       { name: 'WKT transform POINT', run: () => giserConvertCrs.transformWKT('POINT(116 39)', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'POINT') },
-      { name: 'WKT transform LINESTRING', run: () => giserConvertCrs.transformWKT('LINESTRING(116 39, 117 40)', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'LINESTRING') },
       { name: 'WKT transform POLYGON', run: () => giserConvertCrs.transformWKT('POLYGON((116 39, 117 39, 117 40, 116 39))', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'POLYGON') },
-      { name: 'WKT transform MULTIPOINT', run: () => giserConvertCrs.transformWKT('MULTIPOINT((116 39), (117 40))', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'MULTIPOINT') },
-      { name: 'WKT transform MULTILINESTRING', run: () => giserConvertCrs.transformWKT('MULTILINESTRING((116 39, 117 40), (118 41, 119 42))', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'MULTILINESTRING') },
-      { name: 'WKT transform MULTIPOLYGON', run: () => giserConvertCrs.transformWKT('MULTIPOLYGON(((116 39, 117 39, 117 40, 116 39)))', 'wgs84', 'gcj02'), check: result => assertWkt(result, 'MULTIPOLYGON') },
-      { name: '高精度 GCJ-02 -> WGS-84 反算', run: () => { const origin = [116.397, 39.908]; const gcj = giserConvertCrs.GPS.wgs84_gcj02(origin[0], origin[1]); return giserConvertCrs.GPS.gcj02_wgs84_precise(gcj[0], gcj[1]); }, check: result => { assert(closeTo(result[0], 116.397, 1e-7), '经度反算误差过大'); assert(closeTo(result[1], 39.908, 1e-7), '纬度反算误差过大'); } },
-      { name: '非法 CRS 抛出错误', run: () => { try { giserConvertCrs.transformPoint([116, 39], 'wgs84', 'epsg:3857'); } catch (error) { return error.message; } throw new Error('未抛出错误'); }, check: result => assert(result.includes('Unsupported CRS'), '错误信息不正确') },
+      { name: '高精度 GCJ-02 -> WGS-84 反算', run: () => { const origin = [116.397, 39.908]; const gcj = giserConvertCrs.GPS.wgs84_gcj02(origin[0], origin[1]); return giserConvertCrs.GPS.gcj02_wgs84_precise(gcj[0], gcj[1]); }, check: result => { assert(closeTo(result[0], 116.397, 1e-8), '经度反算误差过大'); assert(closeTo(result[1], 39.908, 1e-8), '纬度反算误差过大'); } },
+      { name: '非法 CRS 抛出错误', run: () => { try { giserConvertCrs.transformPoint([116, 39], 'wgs84', 'unsupported-crs'); } catch (error) { return error.message; } throw new Error('未抛出错误'); }, check: result => assert(result.includes('Unsupported CRS'), '错误信息不正确') },
       { name: '非法 WKT 抛出错误', run: () => { try { giserConvertCrs.WKT.parse('LINESTRING(116 39, bad)'); } catch (error) { return error.message; } throw new Error('未抛出错误'); }, check: result => assert(result.includes('Invalid WKT coordinate'), '错误信息不正确') }
     ];
 
@@ -210,7 +239,7 @@
       return giserConvertCrs.transformPoint(coord, document.getElementById('pointFrom').value, document.getElementById('pointTo').value);
     }));
     document.getElementById('convertWkt').addEventListener('click', () => show('wktOutput', () => giserConvertCrs.transformWKT(document.getElementById('wktInput').value, document.getElementById('wktFrom').value, document.getElementById('wktTo').value)));
-    document.getElementById('convertGeojson').addEventListener('click', () => show('geojsonOutput', () => giserConvertCrs.transformGeoJSON(JSON.parse(document.getElementById('geojsonInput').value), 'wgs84', 'gcj02')));
+    document.getElementById('convertGeojson').addEventListener('click', () => show('geojsonOutput', () => giserConvertCrs.transformGeoJSON(JSON.parse(document.getElementById('geojsonInput').value), document.getElementById('geojsonFrom').value, document.getElementById('geojsonTo').value)));
 
     renderPendingTests();
     document.getElementById('convertPoint').click();

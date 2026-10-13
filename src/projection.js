@@ -3,104 +3,206 @@ import GPS from './gps.js';
 const crs = {
   bd09ll: '+proj=longlat +datum=BD09',
   gcj02: '+proj=longlat +datum=GCJ02',
-  wgs84: '+proj=longlat +datum=WGS84 +no_defs'
+  wgs84: '+proj=longlat +datum=WGS84 +no_defs',
+  epsg3857: '+proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +wktext +no_defs'
 };
 
 const CRS_ALIASES = {
   'bd-09': 'bd09ll',
   'bd09': 'bd09ll',
   'bd09ll': 'bd09ll',
+  'bd-09ll': 'bd09ll',
   'epsg:4326': 'wgs84',
+  'epsg4326': 'wgs84',
+  '4326': 'wgs84',
+  'cgcs2000': 'wgs84',
+  'cgcs-2000': 'wgs84',
+  'epsg:4490': 'wgs84',
+  'epsg4490': 'wgs84',
+  '4490': 'wgs84',
   'gcj-02': 'gcj02',
   'gcj02': 'gcj02',
   'wgs-84': 'wgs84',
-  'wgs84': 'wgs84'
+  'wgs84': 'wgs84',
+  'epsg:3857': 'epsg3857',
+  'epsg3857': 'epsg3857',
+  '3857': 'epsg3857',
+  'epsg:900913': 'epsg3857',
+  'epsg900913': 'epsg3857',
+  '900913': 'epsg3857',
+  'mercator': 'epsg3857',
+  'webmercator': 'epsg3857'
 };
 
 const ProjectionTransform = {
   crs,
 
-  transform(source, fromCRS, toCRS) {
+  transform(source, fromCRS, toCRS, options = {}) {
     if (source == null) return null;
 
     const from = this._normalizeCRS(fromCRS);
     const to = this._normalizeCRS(toCRS);
+    const transformCoord = this._getCoordTransformer(from, to, options);
 
     if (this._isCoord(source)) {
-      return this._transformCoordinate(source, from, to);
+      return transformCoord(source);
     }
 
     if (Array.isArray(source)) {
-      return this._transformCoordinateTree(source, from, to);
+      return this._transformCoordinateTree(source, transformCoord, options);
     }
 
-    return this._transformGeoJSON(source, from, to);
+    return this._transformGeoJSON(source, transformCoord, options);
   },
 
-  _transformGeoJSON(geoJSON, fromCRS, toCRS) {
+  _getCoordTransformer(from, to, options = {}) {
+    const isMutate = Boolean(options.mutate);
+    const isPrecise = options.precise !== false;
+
+    if (from === to) {
+      return isMutate
+        ? coord => coord
+        : coord => [Number(coord[0]), Number(coord[1]), ...coord.slice(2)];
+    }
+
+    let method;
+    if (isPrecise && (from === 'gcj02' || from === 'bd09ll') && to === 'wgs84') {
+      method = `${from}_wgs84_precise`;
+    } else {
+      method = `${from}_${to}`;
+    }
+
+    const fn = GPS[method];
+    if (typeof fn !== 'function') {
+      throw new Error(`Unsupported CRS transform: ${from} -> ${to}.`);
+    }
+
+    if (isMutate) {
+      return coord => {
+        const x = Number(coord[0]);
+        const y = Number(coord[1]);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+          throw new Error('Invalid coordinate: longitude and latitude must be finite numbers.');
+        }
+        const [tx, ty] = fn.call(GPS, x, y);
+        coord[0] = tx;
+        coord[1] = ty;
+        return coord;
+      };
+    }
+
+    return coord => {
+      const x = Number(coord[0]);
+      const y = Number(coord[1]);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        throw new Error('Invalid coordinate: longitude and latitude must be finite numbers.');
+      }
+      const [tx, ty] = fn.call(GPS, x, y);
+      return [tx, ty, ...coord.slice(2)];
+    };
+  },
+
+  _transformGeoJSON(geoJSON, transformCoord, options = {}) {
     if (!geoJSON || typeof geoJSON !== 'object') {
       throw new Error('Invalid GeoJSON object.');
     }
 
+    const result = options.mutate ? geoJSON : { ...geoJSON };
+
+    if (Array.isArray(geoJSON.bbox)) {
+      result.bbox = this._transformBbox(geoJSON.bbox, transformCoord);
+    }
+
     if (geoJSON.type === 'Feature') {
-      return {
-        ...geoJSON,
-        geometry: geoJSON.geometry ? this.transform(geoJSON.geometry, fromCRS, toCRS) : null
-      };
+      result.geometry = geoJSON.geometry
+        ? this._transformGeoJSON(geoJSON.geometry, transformCoord, options)
+        : null;
+      return result;
     }
 
     if (geoJSON.type === 'FeatureCollection') {
-      if (!Array.isArray(geoJSON.features)) throw new Error('Invalid FeatureCollection: features must be an array.');
-      return {
-        ...geoJSON,
-        features: geoJSON.features.map(feature => this.transform(feature, fromCRS, toCRS))
-      };
+      if (!Array.isArray(geoJSON.features)) {
+        throw new Error('Invalid FeatureCollection: features must be an array.');
+      }
+      if (options.mutate) {
+        for (let i = 0; i < geoJSON.features.length; i++) {
+          geoJSON.features[i] = this._transformGeoJSON(geoJSON.features[i], transformCoord, options);
+        }
+        result.features = geoJSON.features;
+      } else {
+        result.features = geoJSON.features.map(f => this._transformGeoJSON(f, transformCoord, options));
+      }
+      return result;
     }
 
     if (geoJSON.type === 'GeometryCollection') {
-      if (!Array.isArray(geoJSON.geometries)) throw new Error('Invalid GeometryCollection: geometries must be an array.');
-      return {
-        ...geoJSON,
-        geometries: geoJSON.geometries.map(geometry => this.transform(geometry, fromCRS, toCRS))
-      };
+      if (!Array.isArray(geoJSON.geometries)) {
+        throw new Error('Invalid GeometryCollection: geometries must be an array.');
+      }
+      if (options.mutate) {
+        for (let i = 0; i < geoJSON.geometries.length; i++) {
+          geoJSON.geometries[i] = geoJSON.geometries[i]
+            ? this._transformGeoJSON(geoJSON.geometries[i], transformCoord, options)
+            : null;
+        }
+        result.geometries = geoJSON.geometries;
+      } else {
+        result.geometries = geoJSON.geometries.map(g => (g ? this._transformGeoJSON(g, transformCoord, options) : null));
+      }
+      return result;
     }
 
     if ('coordinates' in geoJSON) {
-      return {
-        ...geoJSON,
-        coordinates: this._transformCoordinateTree(geoJSON.coordinates, fromCRS, toCRS)
-      };
+      result.coordinates = this._transformCoordinateTree(geoJSON.coordinates, transformCoord, options);
+      return result;
     }
 
     throw new Error(`Unsupported GeoJSON type: ${geoJSON.type || 'unknown'}.`);
   },
 
-  _transformCoordinateTree(coordinates, fromCRS, toCRS) {
+  _transformCoordinateTree(coordinates, transformCoord, options = {}) {
     if (coordinates == null) return coordinates;
-    if (this._isCoord(coordinates)) return this._transformCoordinate(coordinates, fromCRS, toCRS);
+    if (this._isCoord(coordinates)) return transformCoord(coordinates);
     if (!Array.isArray(coordinates)) throw new Error('Invalid coordinates: expected coordinate array.');
-    return coordinates.map(item => this._transformCoordinateTree(item, fromCRS, toCRS));
+
+    if (options.mutate) {
+      for (let i = 0; i < coordinates.length; i++) {
+        coordinates[i] = this._transformCoordinateTree(coordinates[i], transformCoord, options);
+      }
+      return coordinates;
+    }
+
+    return coordinates.map(item => this._transformCoordinateTree(item, transformCoord, options));
   },
 
-  _transformCoordinate(coordinate, fromCRS, toCRS) {
-    const from = this._normalizeCRS(fromCRS);
-    const to = this._normalizeCRS(toCRS);
-    const lon = Number(coordinate[0]);
-    const lat = Number(coordinate[1]);
-
-    if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
-      throw new Error('Invalid coordinate: longitude and latitude must be finite numbers.');
+  _transformBbox(bbox, transformCoord) {
+    if (!Array.isArray(bbox) || (bbox.length !== 4 && bbox.length !== 6)) {
+      return bbox;
     }
 
-    if (from === to) return [lon, lat, ...coordinate.slice(2)];
-
-    const method = `${from}_${to}`;
-    if (typeof GPS[method] !== 'function') {
-      throw new Error(`Unsupported CRS transform: ${fromCRS} -> ${toCRS}.`);
+    if (bbox.length === 4) {
+      const [minX, minY, maxX, maxY] = bbox;
+      const p1 = transformCoord([minX, minY]);
+      const p2 = transformCoord([maxX, maxY]);
+      return [
+        Math.min(p1[0], p2[0]),
+        Math.min(p1[1], p2[1]),
+        Math.max(p1[0], p2[0]),
+        Math.max(p1[1], p2[1])
+      ];
     }
 
-    const transformed = GPS[method](lon, lat);
-    return [transformed[0], transformed[1], ...coordinate.slice(2)];
+    const [minX, minY, minZ, maxX, maxY, maxZ] = bbox;
+    const p1 = transformCoord([minX, minY, minZ]);
+    const p2 = transformCoord([maxX, maxY, maxZ]);
+    return [
+      Math.min(p1[0], p2[0]),
+      Math.min(p1[1], p2[1]),
+      minZ,
+      Math.max(p1[0], p2[0]),
+      Math.max(p1[1], p2[1]),
+      maxZ
+    ];
   },
 
   _normalizeCRS(value) {
@@ -130,10 +232,10 @@ const ProjectionTransform = {
   _isCoord(coordinate) {
     return Array.isArray(coordinate) &&
       coordinate.length >= 2 &&
-      Number.isFinite(Number(coordinate[0])) &&
-      Number.isFinite(Number(coordinate[1])) &&
       !Array.isArray(coordinate[0]) &&
-      !Array.isArray(coordinate[1]);
+      !Array.isArray(coordinate[1]) &&
+      Number.isFinite(Number(coordinate[0])) &&
+      Number.isFinite(Number(coordinate[1]));
   }
 };
 

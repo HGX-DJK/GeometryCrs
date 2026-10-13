@@ -2,10 +2,13 @@ const PI = Math.PI;
 const X_PI = PI * 3000.0 / 180.0;
 const SEMI_MAJOR_AXIS = 6378245.0;
 const ECCENTRICITY_SQUARED = 0.00669342162296594323;
+const EPSG3857_RADIUS = 6378137.0;
+const EPSG3857_MAX_LAT = 85.0511287798066;
 
 const GPS = {
   PI,
   x_pi: X_PI,
+  EARTH_RADIUS: EPSG3857_RADIUS,
 
   delta(lat, lon) {
     let dLat = this.transformLat(lon - 105.0, lat - 35.0);
@@ -41,26 +44,16 @@ const GPS = {
     this._assertLonLat(gcjLon, gcjLat);
     if (this.outOfChina(gcjLat, gcjLon)) return [gcjLon, gcjLat];
 
-    const threshold = 0.000000001;
-    let minLat = gcjLat - 0.01;
-    let minLon = gcjLon - 0.01;
-    let maxLat = gcjLat + 0.01;
-    let maxLon = gcjLon + 0.01;
-    let wgsLat = gcjLat;
     let wgsLon = gcjLon;
+    let wgsLat = gcjLat;
 
-    for (let i = 0; i < 10000; i++) {
-      wgsLat = (minLat + maxLat) / 2;
-      wgsLon = (minLon + maxLon) / 2;
-      const [tmpLon, tmpLat] = this.wgs84_gcj02(wgsLon, wgsLat);
-      const dLat = tmpLat - gcjLat;
-      const dLon = tmpLon - gcjLon;
-
-      if (Math.abs(dLat) < threshold && Math.abs(dLon) < threshold) break;
-      if (dLat > 0) maxLat = wgsLat;
-      else minLat = wgsLat;
-      if (dLon > 0) maxLon = wgsLon;
-      else minLon = wgsLon;
+    for (let i = 0; i < 5; i++) {
+      const [currLon, currLat] = this.wgs84_gcj02(wgsLon, wgsLat);
+      const dLon = currLon - gcjLon;
+      const dLat = currLat - gcjLat;
+      wgsLon -= dLon;
+      wgsLat -= dLat;
+      if (Math.abs(dLon) < 1e-11 && Math.abs(dLat) < 1e-11) break;
     }
 
     return [wgsLon, wgsLat];
@@ -82,6 +75,16 @@ const GPS = {
     return [z * Math.cos(theta), z * Math.sin(theta)];
   },
 
+  bd09ll_gcj02_precise(bdLon, bdLat) {
+    let [gLon, gLat] = this.bd09ll_gcj02(bdLon, bdLat);
+    for (let i = 0; i < 2; i++) {
+      const [tBdLon, tBdLat] = this.gcj02_bd09ll(gLon, gLat);
+      gLon -= (tBdLon - bdLon);
+      gLat -= (tBdLat - bdLat);
+    }
+    return [gLon, gLat];
+  },
+
   wgs84_bd09ll(wgsLon, wgsLat) {
     const gcj = this.wgs84_gcj02(wgsLon, wgsLat);
     return this.gcj02_bd09ll(gcj[0], gcj[1]);
@@ -93,11 +96,52 @@ const GPS = {
   },
 
   bd09ll_wgs84_precise(bdLon, bdLat) {
-    const gcj = this.bd09ll_gcj02(bdLon, bdLat);
+    const gcj = this.bd09ll_gcj02_precise(bdLon, bdLat);
     return this.gcj02_wgs84_precise(gcj[0], gcj[1]);
   },
 
+  wgs84_epsg3857(lon, lat) {
+    this._assertLonLat(lon, lat);
+    const clampedLat = Math.max(-EPSG3857_MAX_LAT, Math.min(EPSG3857_MAX_LAT, lat));
+    const x = lon * EPSG3857_RADIUS * PI / 180.0;
+    const radLat = clampedLat * PI / 180.0;
+    const y = EPSG3857_RADIUS * Math.log(Math.tan(PI / 4.0 + radLat / 2.0));
+    return [x, y];
+  },
+
+  epsg3857_wgs84(x, y) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      throw new Error('Invalid coordinate: x and y must be finite numbers.');
+    }
+    const lon = (x / (EPSG3857_RADIUS * PI)) * 180.0;
+    const lat = (2.0 * Math.atan(Math.exp(y / EPSG3857_RADIUS)) - PI / 2.0) * 180.0 / PI;
+    return [lon, lat];
+  },
+
+  gcj02_epsg3857(lon, lat) {
+    const wgs = this.gcj02_wgs84_precise(lon, lat);
+    return this.wgs84_epsg3857(wgs[0], wgs[1]);
+  },
+
+  epsg3857_gcj02(x, y) {
+    const wgs = this.epsg3857_wgs84(x, y);
+    return this.wgs84_gcj02(wgs[0], wgs[1]);
+  },
+
+  bd09ll_epsg3857(lon, lat) {
+    const wgs = this.bd09ll_wgs84_precise(lon, lat);
+    return this.wgs84_epsg3857(wgs[0], wgs[1]);
+  },
+
+  epsg3857_bd09ll(x, y) {
+    const wgs = this.epsg3857_wgs84(x, y);
+    return this.wgs84_bd09ll(wgs[0], wgs[1]);
+  },
+
   outOfChina(lat, lon) {
+    if (Array.isArray(lat)) {
+      return this.outOfChina(lat[1], lat[0]);
+    }
     return lon < 72.004 || lon > 137.8347 || lat < 0.8293 || lat > 55.8271;
   },
 
