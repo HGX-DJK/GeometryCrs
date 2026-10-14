@@ -124,11 +124,24 @@ export interface TransformOptions {
   /**
    * Use fixed-point iteration when inverting a datum shift.
    * Defaults to `true`; applies to every target CRS, not just WGS-84.
-   * Precision cost: ~1e-10 deg instead of ~5e-7 deg (~5-8 cm).
+   *
+   * Measured over 20k points across China, a WGS-84 -> GCJ-02 -> WGS-84
+   * round trip drifts by ~5.2e-5 deg (5.8 m) at worst and ~7.7e-6 deg (0.9 m)
+   * on average with `precise: false`, versus ~1e-13 deg with `precise: true`.
+   *
+   * `precise: false` is ~2.5x faster and is the right choice for rendering and
+   * display, where 0.9 m is invisible. Keep the default when coordinates are
+   * stored and later round-tripped, where the drift accumulates.
    */
   precise?: boolean;
   /** Transform in place, skipping all result-array allocation. */
   mutate?: boolean;
+  /**
+   * Segments sampled along each bbox edge when re-deriving a `bbox`.
+   * Defaults to `1` (corners only). Raise it for large extents, where the
+   * corner-only result drifts: on a continental box 16 -> ~13 m, 32 -> ~7 m.
+   */
+  bboxSamples?: number;
   /** Decimal places kept when the output is a WKT string. */
   precision?: number;
 }

@@ -161,8 +161,27 @@ function bd09ll_gcj02_preciseInto(bdLon, bdLat, out) {
   return out;
 }
 
+/**
+ * EPSG:3857 is undefined beyond +-85.0511 deg. Clamping is the standard
+ * (Leaflet/OpenLayers do the same), but it is lossy: every latitude above the
+ * limit collapses onto the same Y, so track data crossing the Arctic silently
+ * flattens. Warn once per process instead of per point.
+ */
+let _warned3857Clamp = false;
+
 function wgs84_epsg3857Into(lon, lat, out) {
-  const clampedLat = Math.max(-EPSG3857_MAX_LAT, Math.min(EPSG3857_MAX_LAT, lat));
+  let clampedLat = lat;
+  if (lat > EPSG3857_MAX_LAT || lat < -EPSG3857_MAX_LAT) {
+    if (!_warned3857Clamp) {
+      _warned3857Clamp = true;
+      console.warn(
+        `[giserConvertCrs] latitude ${lat} exceeds the EPSG:3857 limit (${EPSG3857_MAX_LAT}); ` +
+        'it is clamped, so this and any larger latitude share the same projected Y.'
+      );
+    }
+    clampedLat = Math.max(-EPSG3857_MAX_LAT, Math.min(EPSG3857_MAX_LAT, lat));
+  }
+
   const x = lon * EPSG3857_RADIUS * PI / 180.0;
   const radLat = clampedLat * PI / 180.0;
   out[0] = x;

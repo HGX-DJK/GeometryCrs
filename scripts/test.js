@@ -465,3 +465,176 @@ describe('Round-trip property tests', () => {
     assert.notEqual(out[0], src[0]);
   });
 });
+
+describe('Regression: malformed coordinates fail loudly', () => {
+  it('rejects null coordinate pairs instead of returning them untransformed', () => {
+    assert.throws(() => ProjectionTransform.transform([null, null], 'wgs84', 'gcj02'), /Invalid coordinates/);
+    assert.throws(() => ProjectionTransform.transform([[null, null]], 'wgs84', 'gcj02'), /Invalid coordinates/);
+    assert.throws(() => ProjectionTransform.transform([116.397, null], 'wgs84', 'gcj02'), /Invalid coordinates/);
+  });
+
+  it('rejects nested empty arrays instead of silently skipping them', () => {
+    assert.throws(() => ProjectionTransform.transform([[], []], 'wgs84', 'gcj02'), /Invalid coordinates/);
+    assert.throws(
+      () => ProjectionTransform.transform({ type: 'MultiPoint', coordinates: [[], []] }, 'wgs84', 'gcj02'),
+      /Invalid coordinates/
+    );
+  });
+
+  it('does not coerce junk values into valid coordinates', () => {
+    // Number('') === 0 and Number(true) === 1, so a loose coercion produced
+    // a legitimate-looking coordinate near Null Island.
+    assert.throws(() => ProjectionTransform.transform(['', ''], 'wgs84', 'gcj02'), /Invalid coordinates/);
+    assert.throws(() => ProjectionTransform.transform(['  ', ' '], 'wgs84', 'gcj02'), /Invalid coordinates/);
+    assert.throws(() => ProjectionTransform.transform([true, true], 'wgs84', 'gcj02'), /Invalid coordinates/);
+    assert.throws(() => ProjectionTransform.transform({ lng: '', lat: '' }, 'wgs84', 'gcj02'), /Invalid input/);
+  });
+
+  it('still accepts numeric strings, empty roots and EMPTY geometries', () => {
+    assert.deepEqual(
+      ProjectionTransform.transform(['116.397', '39.908'], 'wgs84', 'gcj02'),
+      ProjectionTransform.transform([116.397, 39.908], 'wgs84', 'gcj02')
+    );
+    assert.deepEqual(ProjectionTransform.transform([], 'wgs84', 'gcj02'), []);
+    assert.equal(giserConvertCrs.transform('POINT EMPTY', 'wgs84', 'gcj02'), 'POINT EMPTY');
+  });
+
+  it('reports what kind of input was rejected', () => {
+    assert.throws(() => ProjectionTransform.transform(116.397, 'wgs84', 'gcj02'), /received number/);
+    assert.throws(() => ProjectionTransform.transform({ foo: 1 }, 'wgs84', 'gcj02'), /"type" field/);
+  });
+});
+
+describe('Regression: bbox handling', () => {
+  const box = [73, 18, 135, 54];
+
+  it('rejects a bbox that is neither 4 nor 6 numbers', () => {
+    assert.throws(
+      () => ProjectionTransform.transform({ type: 'Point', coordinates: [1, 2], bbox: [1, 2, 3] }, 'wgs84', 'gcj02'),
+      /Invalid bbox/
+    );
+    assert.throws(
+      () => ProjectionTransform.transform({ type: 'Point', coordinates: [1, 2], bbox: 'x' }, 'wgs84', 'gcj02'),
+      /Invalid bbox/
+    );
+  });
+
+  it('keeps the transformed geometry inside its own bbox', () => {
+    const ring = [];
+    for (let i = 0; i <= 180; i++) {
+      const a = (i / 180) * 2 * Math.PI;
+      ring.push([73 + 31 * (1 + Math.cos(a)), 36 + 18 * Math.sin(a)]);
+    }
+    for (const bboxSamples of [1, 4, 16]) {
+      const res = ProjectionTransform.transform(
+        { type: 'Polygon', coordinates: [ring], bbox: box },
+        'wgs84', 'gcj02', { bboxSamples }
+      );
+      const xs = res.coordinates[0].map(c => c[0]);
+      const ys = res.coordinates[0].map(c => c[1]);
+      assert.ok(Math.min(...xs) >= res.bbox[0], `minX inside bbox (samples=${bboxSamples})`);
+      assert.ok(Math.max(...xs) <= res.bbox[2], `maxX inside bbox (samples=${bboxSamples})`);
+      assert.ok(Math.min(...ys) >= res.bbox[1], `minY inside bbox (samples=${bboxSamples})`);
+      assert.ok(Math.max(...ys) <= res.bbox[3], `maxY inside bbox (samples=${bboxSamples})`);
+    }
+  });
+
+  it('more samples never shrink the sampled bbox', () => {
+    const geo = { type: 'Polygon', coordinates: [[[73, 18], [135, 18], [135, 54], [73, 54], [73, 18]]], bbox: box };
+    const coarse = ProjectionTransform.transform(geo, 'wgs84', 'gcj02', { bboxSamples: 1 }).bbox;
+    const fine = ProjectionTransform.transform(geo, 'wgs84', 'gcj02', { bboxSamples: 32 }).bbox;
+    assert.ok(fine[0] <= coarse[0] && fine[1] <= coarse[1], 'denser sampling must not raise the minimum');
+    assert.ok(fine[2] >= coarse[2] && fine[3] >= coarse[3], 'denser sampling must not lower the maximum');
+  });
+
+  it('preserves the Z extent of a 6-element bbox', () => {
+    const res = ProjectionTransform.transform(
+      { type: 'Point', coordinates: [116, 39, 100], bbox: [115, 38, 50, 117, 40, 150] },
+      'wgs84', 'gcj02'
+    );
+    assert.equal(res.bbox.length, 6);
+    assert.equal(res.bbox[2], 50);
+    assert.equal(res.bbox[5], 150);
+  });
+});
+
+describe('Regression: legacy crs member and read-only inputs', () => {
+  it('drops a stale crs member when the datum changes', () => {
+    const legacy = {
+      type: 'FeatureCollection',
+      crs: { type: 'name', properties: { name: 'urn:ogc:def:crs:OGC:1.3:CRS84' } },
+      features: [{
+        type: 'Feature',
+        crs: { type: 'name', properties: { name: 'urn:ogc:def:crs:OGC:1.3:CRS84' } },
+        properties: {},
+        geometry: { type: 'Point', coordinates: [116.397, 39.908] }
+      }]
+    };
+    const res = ProjectionTransform.transform(legacy, 'wgs84', 'gcj02');
+    assert.equal(res.crs, undefined, 'root crs must not advertise the old datum');
+    assert.equal(res.features[0].crs, undefined, 'feature-level crs must be dropped too');
+  });
+
+  it('keeps the crs member when nothing is actually shifted', () => {
+    const name = 'urn:ogc:def:crs:OGC:1.3:CRS84';
+    const legacy = { type: 'Point', crs: { type: 'name', properties: { name } }, coordinates: [116.397, 39.908] };
+    const res = ProjectionTransform.transform(legacy, 'wgs84', 'EPSG:4326');
+    assert.equal(res.crs.properties.name, name);
+  });
+
+  it('explains a read-only failure instead of leaking a raw TypeError', () => {
+    assert.throws(
+      () => ProjectionTransform.transform(Object.freeze([116.397, 39.908]), 'wgs84', 'gcj02', { mutate: true }),
+      /options\.mutate requires writable coordinates/
+    );
+  });
+});
+
+describe('Regression: WKT dimension markers', () => {
+  it('preserves the Z marker across a round trip', () => {
+    const once = giserConvertCrs.transform('POINT Z (116.397 39.908 45)', 'wgs84', 'gcj02');
+    assert.ok(once.startsWith('POINT Z('), `expected a Z marker, got ${once}`);
+    const twice = giserConvertCrs.transform(once, 'wgs84', 'gcj02');
+    assert.ok(twice.startsWith('POINT Z('), 'Z must survive a second round trip');
+    assert.equal(WKT.parse(once).coordinates.length, 3);
+  });
+
+  it('leaves 2D geometries unmarked', () => {
+    assert.equal(giserConvertCrs.transform('POINT(116.397 39.908)', 'wgs84', 'gcj02').startsWith('POINT Z'), false);
+    assert.ok(giserConvertCrs.transform('LINESTRING(116 39, 117 40)', 'wgs84', 'gcj02').startsWith('LINESTRING('));
+  });
+
+  it('marks nested 3D geometries too', () => {
+    assert.ok(giserConvertCrs.transform('LINESTRING Z (116 39 5, 117 40 6)', 'wgs84', 'gcj02').startsWith('LINESTRING Z('));
+    assert.ok(giserConvertCrs.transform('POLYGON Z ((116 39 1, 117 39 1, 117 40 1, 116 39 1))', 'wgs84', 'gcj02').startsWith('POLYGON Z('));
+  });
+});
+
+describe('Regression: serialised GeoJSON input', () => {
+  it('parses a JSON GeoJSON string instead of failing as WKT', () => {
+    const res = giserConvertCrs.transform('{"type":"Point","coordinates":[116.397,39.908]}', 'wgs84', 'gcj02');
+    assert.equal(res.type, 'Point');
+    closeTo(res.coordinates[0], 116.403243, 1e-4);
+  });
+
+  it('still reports a useful error for malformed JSON', () => {
+    assert.throws(() => giserConvertCrs.transform('{not json', 'wgs84', 'gcj02'), /JSON GeoJSON/);
+    assert.throws(() => giserConvertCrs.transform('NOTAGEOM(1 2)', 'wgs84', 'gcj02'), /Invalid WKT|Unsupported WKT/);
+  });
+});
+
+describe('Regression: documented inverse accuracy', () => {
+  it('precise:false inverse drifts by metres, not centimetres', () => {
+    // Guards the README claim: the fast inverse is good to ~0.9 m on average
+    // and ~6 m at worst, so any documentation of "5-8 cm" is wrong.
+    let worst = 0;
+    for (let i = 0; i < 600; i++) {
+      const p = [73 + (i % 40) * 1.5, 18 + (i % 30) * 1.1];
+      const fwd = ProjectionTransform.transform(p, 'wgs84', 'gcj02');
+      const back = ProjectionTransform.transform(fwd, 'gcj02', 'wgs84', { precise: false });
+      worst = Math.max(worst, Math.abs(back[0] - p[0]), Math.abs(back[1] - p[1]));
+    }
+    assert.ok(worst > 1e-6, 'fast inverse is expected to drift by more than 1e-6 deg');
+    assert.ok(worst < 1e-4, `fast inverse drifted by ${worst}, expected metre-scale`);
+  });
+});

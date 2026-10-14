@@ -73,7 +73,27 @@ const WKT = {
     const coords = geoJSON.coordinates;
     if (this._isEmpty(coords)) return `${wktType} EMPTY`;
 
-    return `${wktType}(${this._stringifyCoordinates(coords, geoJSON.type, precision)})`;
+    return `${wktType}${this._ordinateTag(coords)}(${this._stringifyCoordinates(coords, geoJSON.type, precision)})`;
+  },
+
+  /**
+   * Re-emits the `Z` / `ZM` dimension marker.
+   *
+   * GeoJSON has no place to record dimensionality, so the marker would
+   * otherwise be dropped on every round-trip: `POINT Z (1 2 3)` parsed and
+   * re-serialised as `POINT(1 2 3)`, which strict WKT consumers read as 2D.
+   * The position width is the only signal available, so it is derived from the
+   * first position in the tree.
+   */
+  _ordinateTag(coords) {
+    let node = coords;
+    while (Array.isArray(node) && node.length > 0 && Array.isArray(node[0])) {
+      node = node[0];
+    }
+    if (!Array.isArray(node)) return '';
+    if (node.length >= 4) return ' ZM';
+    if (node.length === 3) return ' Z';
+    return '';
   },
 
   _parseCoordinates(content, type) {

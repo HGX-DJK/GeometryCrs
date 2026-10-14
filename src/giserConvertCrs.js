@@ -12,7 +12,23 @@ const giserConvertCrs = {
 
     if (typeof input === 'string') {
       // blank / whitespace-only WKT is treated as "no geometry", not an error
-      if (!input.trim()) return null;
+      const trimmed = input.trim();
+      if (!trimmed) return null;
+
+      // A WKT geometry never starts with `{` or `[`, so a JSON-looking string
+      // is unambiguously serialised GeoJSON. Falling back to WKT on a parse
+      // failure keeps the error message meaningful for genuine WKT mistakes.
+      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+          return ProjectionTransform.transform(JSON.parse(trimmed), fromCRS, toCRS, options);
+        } catch (e) {
+          if (e instanceof SyntaxError) {
+            throw new Error('Invalid input: string looks like JSON GeoJSON but could not be parsed.');
+          }
+          throw e;
+        }
+      }
+
       const geoJSON = WKT.parse(input);
       const transformed = ProjectionTransform.transform(geoJSON, fromCRS, toCRS, options);
       return WKT.stringify(transformed, options);
